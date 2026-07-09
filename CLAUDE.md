@@ -46,12 +46,13 @@ There is **no test suite** and no lint/typecheck config. Proof of a change:
 
 ## Gotchas
 
-- **Model is pinned in `src/KellyBot.jsx`** (`model: "claude-sonnet-5"`), and
-  named again in `README.md`. Those are the two places to update on a model
-  change. `thinking: { type: "disabled" }` is set alongside it deliberately —
-  Sonnet 5 runs adaptive thinking by default, which would add latency and
-  consume the `max_tokens` reply budget; leave it disabled unless you also
-  raise `max_tokens`.
+- **Model is pinned in `src/KellyBot.jsx`** (`model: "claude-sonnet-4-20250514"`),
+  and named again in `README.md`. Those are the two places to update on a model
+  change. This is a deprecated dated snapshot — it works today but will
+  eventually stop being served. Do NOT bump it casually: Kelly's persona is
+  tuned to this model, so any replacement must be validated against her actual
+  output (voice, structure, density) before shipping — a model swap changes how
+  she responds.
 - **Web search is gated:** the `web_search` tool is only attached when the
   user's message contains a URL (`hasURL(txt)`). No link → no web access.
 - Each turn re-sends the full conversation, so long chats grow slower/pricier.

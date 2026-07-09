@@ -414,11 +414,8 @@ export default function KellyBot() {
     // Web access is GATED: only enabled when the user's message contains a URL.
     const webEnabled = hasURL(txt);
     const body = {
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
-      // Sonnet 5 runs adaptive thinking by default when `thinking` is omitted;
-      // disable it to keep replies fast and inside the max_tokens budget.
-      thinking: { type: "disabled" },
       system: webEnabled
         ? KELLY_SYSTEM + "\n\n---\n\nWEB ACCESS: The user has supplied a link in their message. You may use the web_search tool ONLY to look up the page(s) at the URL(s) they provided and answer questions about that content. Do not browse beyond what is needed to address the supplied link. If no link were present you would have no web access at all."
         : KELLY_SYSTEM,

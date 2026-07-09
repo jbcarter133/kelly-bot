@@ -83,5 +83,5 @@ In the browser, an API key shipped in client code is visible to anyone who opens
 
 - Each message re-sends the full conversation, so very long chats grow slower and pricier. Trimming old turns is a good future addition.
 - Output is capped per reply (`max_tokens`); raise it in `KellyBot.jsx` if you want longer answers.
-- Model is set to `claude-sonnet-5` in `KellyBot.jsx` — change there if needed.
+- Model is set to `claude-sonnet-4-20250514` in `KellyBot.jsx` — change there if needed.
 - The Anthropic API version header is set in `api/chat.js`.
