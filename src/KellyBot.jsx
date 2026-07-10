@@ -714,7 +714,11 @@ export default function KellyBot() {
               </svg>
             </button>
           </div>
-          <p style={S.hint}>↵ send · drag, paste, or tap ⎘ to attach images & PDFs</p>
+          <p style={S.hint}>
+            {PROVIDERS[providerId].textOnly
+              ? `↵ send · ${PROVIDERS[providerId].label} is text-only — switch to Anthropic in ⚙ for images & PDFs`
+              : "↵ send · drag, paste, or tap ⎘ to attach images & PDFs"}
+          </p>
         </div>
       </div>
     </>

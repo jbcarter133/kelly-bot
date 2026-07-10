@@ -6,10 +6,13 @@
 // — same endpoint, body, and web-search gating — so Kelly is unchanged there.
 // Groq is OpenAI-compatible and text-only (no images/PDFs, no web search).
 
-const MAX_TOKENS = 1000;
+// Headroom for models that run "thinking" (e.g. Sonnet 5): with a tiny budget
+// the thinking can consume everything and leave no visible reply text.
+const MAX_TOKENS = 4096;
 
 function errText(status, msg) {
   if (status === 401) return "Your API key was rejected — check it in Settings.";
+  if (status === 404) return "That model isn't available on your key — pick another in Settings.";
   if (status === 429) return "Rate limited or out of credit on this provider.";
   return msg || `Request failed (HTTP ${status}).`;
 }
@@ -41,7 +44,16 @@ async function anthropicChat({ apiKey, model, system, messages, webEnabled, sign
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return { error: errText(res.status, data?.error?.message) };
   // Concatenate all text blocks (web_search responses can be multi-block).
-  const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim() || "…";
+  const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+  if (!reply) {
+    // Models that run "thinking" (Sonnet 5, Opus, …) can spend the whole
+    // max_tokens budget reasoning and return no visible text.
+    return {
+      error: data.stop_reason === "max_tokens"
+        ? "The model hit its length limit before writing a reply — try again, or a shorter prompt."
+        : "The model returned no text — try again, or pick a different model in Settings.",
+    };
+  }
   return { reply };
 }
 
@@ -68,7 +80,8 @@ async function groqChat({ apiKey, model, system, messages, signal }) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return { error: errText(res.status, data?.error?.message) };
-  const reply = (data.choices?.[0]?.message?.content || "").trim() || "…";
+  const reply = (data.choices?.[0]?.message?.content || "").trim();
+  if (!reply) return { error: "The model returned no text — try again, or pick a different model in Settings." };
   return { reply };
 }
 
