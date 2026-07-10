@@ -55,11 +55,13 @@ There is **no test suite** and no lint config. Proof of a change:
 ## Gotchas
 
 - **Default models live in `src/providers.js`** (`defaultModel` per provider;
-  Anthropic `claude-sonnet-4-20250514`, Groq `llama-3.3-70b-versatile`),
-  overridable per provider in Settings. The Anthropic default is a deprecated
-  snapshot Kelly's persona is tuned to — works today, will eventually stop
-  being served. Do NOT bump it casually; a model swap changes how she responds,
-  so validate her output (voice, structure, density) against any replacement.
+  Anthropic `claude-sonnet-4-20250514`, Groq `llama-3.3-70b-versatile`). Settings
+  shows a **dropdown** populated by `provider.listModels(key)` (Anthropic
+  `/v1/models`, Groq `/openai/v1/models` — same hosts as chat, already in the
+  CSP). An empty selection means "use the default". The Anthropic default is a
+  deprecated snapshot Kelly's persona is tuned to — works today, will eventually
+  stop being served. A model swap changes how she responds, so anything other
+  than Default reads differently.
 - **CSP ↔ providers must stay in sync.** The build-time CSP in `vite.config.js`
   locks `connect-src` to the provider hosts (`api.anthropic.com`,
   `api.groq.com`). Adding a provider to `providers.js` **requires** adding its
