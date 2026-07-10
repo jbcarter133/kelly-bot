@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { getKey, setKey, clearKey, getStorageMode, setStorageMode } from "./keyStore.js";
 
 const KELLY_SYSTEM = `You are a Claude instance configured to think and speak in the style, structure, and cognitive habits of Kelly. You do not imitate a biography; you imitate a mindset. You remain an AI, but your reasoning, structure, and expressive modes follow Kelly's characteristic "isms."
 
@@ -333,6 +334,12 @@ export default function KellyBot() {
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // BYOK: the user's Anthropic key, held only in this browser (see keyStore.js).
+  const [apiKey, setApiKey] = useState(() => getKey());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+  const [storageMode, setStorageModeState] = useState(() => getStorageMode());
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, pending]);
@@ -389,6 +396,8 @@ export default function KellyBot() {
   async function send(overrideText) {
     const txt = (overrideText ?? input).trim();
     if ((!txt && pending.length === 0) || loading) return;
+    // BYOK: no key, no call. Open Settings and keep the user's input intact.
+    if (!apiKey) { setKeyInput(apiKey); setSettingsOpen(true); return; }
 
     // Build content blocks: attachments first, then text
     const userBlocks = [
@@ -426,13 +435,29 @@ export default function KellyBot() {
     }
 
     try {
-      // Calls the serverless proxy in /api/chat.js — the API key lives there, never in the client.
-      const res = await fetch("/api/chat", {
+      // BYOK: call Anthropic directly with the user's own key. The
+      // dangerous-direct-browser-access header is Anthropic's required opt-in
+      // for browser calls; the body is exactly what the proxy used to forward.
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify(body),
       });
       const data = await res.json();
+      if (!res.ok) {
+        const hint = res.status === 401
+          ? "Your API key was rejected — check it in Settings."
+          : res.status === 429
+            ? "Rate limited or out of credit on your Anthropic account."
+            : (data?.error?.message || `Request failed (HTTP ${res.status}).`);
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠︎ ${hint}` }]);
+        return;
+      }
       // Concatenate all text blocks (web_search responses can be multi-block)
       const reply = (data.content || [])
         .filter(b => b.type === "text")
@@ -441,7 +466,7 @@ export default function KellyBot() {
         .trim() || "…";
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "System error. Check the API connection." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "Network error reaching Anthropic. Check your connection." }]);
     } finally {
       setLoading(false);
     }
@@ -499,6 +524,41 @@ export default function KellyBot() {
             </div>
           </div>
         )}
+        {settingsOpen && (
+          <div onClick={() => setSettingsOpen(false)}
+            style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ width: "100%", maxWidth: 380, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, fontFamily: "'DM Mono', monospace" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>Anthropic API key</div>
+              <p style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
+                Stored only in this browser and sent only to api.anthropic.com — there is no server. Get one at platform.claude.com → API keys.
+              </p>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={e => setKeyInput(e.target.value)}
+                placeholder="sk-ant-…"
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 12 }}
+              />
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.inkSoft, marginBottom: 16, cursor: "pointer" }}>
+                <input type="checkbox" checked={storageMode === "session"}
+                  onChange={e => setStorageModeState(e.target.checked ? "session" : "local")} />
+                Forget when I close the tab (recommended on shared machines)
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => { setStorageMode(storageMode); setKey(keyInput); setApiKey(keyInput.trim()); setSettingsOpen(false); }}
+                  style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: C.accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                >Save</button>
+                <button
+                  onClick={() => { clearKey(); setApiKey(""); setKeyInput(""); }}
+                  style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                >Clear</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Nav */}
         <div style={S.navbar}>
           <div style={S.navRow}>
@@ -508,6 +568,16 @@ export default function KellyBot() {
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", display: "block" }} />
               <span style={{ fontSize: 10, color: C.faint, letterSpacing: "0.12em", textTransform: "uppercase" }}>Active</span>
             </div>
+            <button
+              onClick={() => { setKeyInput(apiKey); setStorageModeState(getStorageMode()); setSettingsOpen(true); }}
+              aria-label="API key settings" title="API key settings"
+              style={{ background: "none", border: "none", cursor: "pointer", color: apiKey ? C.faint : C.accent, padding: 4, display: "flex", marginLeft: 4 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
           </div>
           <div style={S.chipRow}>
             {["Systems", "Symbolic", "Architect", "Wry"].map(t => <span key={t} style={S.chip}>{t}</span>)}
