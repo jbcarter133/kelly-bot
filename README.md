@@ -29,7 +29,7 @@ kelly-bot/
 - **Copy** — one tap copies any of Kelly's responses (with a clipboard fallback for locked-down browsers).
 - **Gated web access** — Kelly can only look something up when *you* include a URL in your message. No link, no browsing. *(Anthropic only.)*
 - **Bring your own key** — pick a provider and paste your key in Settings (the gear, top right). It's stored only in your browser, per provider.
-- **Providers** — **Anthropic (Claude)** is the default and the full experience (images, PDFs, gated web search). **Groq (Llama)** is also supported for fast, free-tier text chat — but it's **text only** (no attachments, no web search), and Kelly's persona is Claude-tuned, so her output on a Llama model will read differently.
+- **Providers** — **Anthropic (Claude)** is the default and the full experience (images, PDFs, gated web search). **Groq (Llama)** is also supported for fast, free-tier text chat — but it's **text only** (no attachments, no web search), and Kelly's persona is Claude-tuned, so her output on a Llama model will read differently. A few tunings narrow that gap on Groq: a lower `temperature` and a system-prompt tweak that stops some models from inventing fictional internals around the persona — try a few models from the dropdown, results vary noticeably.
 - **Model picker** — Settings shows a **dropdown of the models your key can access** (fetched live from the provider; ↻ to refresh). Leave it on **Default** to use Kelly's tuned model.
 
 ---

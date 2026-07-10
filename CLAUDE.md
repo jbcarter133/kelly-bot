@@ -14,8 +14,12 @@ A Claude-powered chat SPA that answers in "Kelly's" voice. React + Vite,
     `anthropic-dangerous-direct-browser-access: true`); content blocks; gated
     web search. This path is byte-identical to the original — Kelly unchanged.
   - **groq** — POSTs to `api.groq.com/openai/v1/chat/completions` (OpenAI
-    shape, `Bearer` auth); **text only** (attachments/web dropped). Llama
-    models, so Kelly reads differently there.
+    shape, `Bearer` auth); **text only** (attachments/web dropped);
+    `temperature: 0.6` (default ~1.0 let some models invent fictional
+    "pipeline stages" around the persona); the system prompt's opening
+    self-identification is rewritten from "a Claude instance" to "an AI" via
+    `groqSystemPrompt()` — telling a Llama model it's Claude was inviting
+    exactly that confabulation. Kelly still reads differently on Groq models.
 - **Key storage:** `src/keyStore.js` — **per-provider** key + model, plus the
   selected provider, held only in the browser (`localStorage`, or
   `sessionStorage` in "session only" mode).
@@ -82,3 +86,11 @@ There is **no test suite** and no lint config. Proof of a change:
   dropped when flattening to the OpenAI shape.
 - The Anthropic request body is unchanged from the original — Kelly's behavior
   on Anthropic is identical; only the transport changed (proxy → direct BYOK).
+- **The persona prompt (`KELLY_SYSTEM` in `KellyBot.jsx`) previously
+  contradicted itself on Sledgehammer.** One block said "ONLY reference... when
+  the user specifically asks"; a second, later block said "you have working
+  knowledge... reference it when relevant" — weaker models (observed: Haiku)
+  followed the permissive one and leaked Sledgehammer unprompted. The second,
+  redundant header was removed; there is now exactly one gate. If you edit this
+  prompt, keep it that way — one instruction per rule, no restatements that can
+  drift out of sync.

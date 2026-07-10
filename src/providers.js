@@ -70,12 +70,29 @@ function toChatMessages(system, messages) {
   return [{ role: "system", content: system }, ...flat];
 }
 
+// Kelly's prompt opens by telling the model it's "a Claude instance" — true on
+// Anthropic, but on a non-Claude model it invites cosplay ("wrapped in a Kelly
+// kernel", invented pipeline stages) instead of just adopting the mindset.
+// Swap the self-identification only; leave factual Claude mentions elsewhere
+// in the prompt (e.g. the Sledgehammer project history) untouched.
+function groqSystemPrompt(system) {
+  return system.replace("You are a Claude instance configured to think", "You are an AI configured to think");
+}
+
 // Groq — OpenAI-compatible, text only (no attachments, no web search).
 async function groqChat({ apiKey, model, system, messages, signal }) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, max_tokens: MAX_TOKENS, messages: toChatMessages(system, messages) }),
+    body: JSON.stringify({
+      model,
+      max_tokens: MAX_TOKENS,
+      // Lower than the API default (~1.0) — cuts down on the invented
+      // "deterministic core / pattern-map cache" style architecture some
+      // Groq models confabulate when improvising around the persona.
+      temperature: 0.6,
+      messages: toChatMessages(groqSystemPrompt(system), messages),
+    }),
     signal,
   });
   const data = await res.json().catch(() => ({}));
