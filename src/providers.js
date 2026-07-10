@@ -115,7 +115,7 @@ export const PROVIDERS = {
     id: "anthropic",
     label: "Anthropic (Claude)",
     keyHint: "sk-ant-… (platform.claude.com → API keys)",
-    defaultModel: "claude-sonnet-4-20250514",
+    defaultModel: "claude-sonnet-5",
     chat: anthropicChat,
     listModels: anthropicListModels,
   },
