@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getKey, setKey, clearKey, getStorageMode, setStorageMode, getProvider, setProvider, getModel, setModel } from "./keyStore.js";
 import { PROVIDERS, PROVIDER_IDS } from "./providers.js";
 
@@ -264,15 +266,101 @@ function Content({ content, dark }) {
             </div>
           );
         }
-        return (
-          <pre key={i} style={{
-            fontSize: 13, lineHeight: 1.65, color: dark ? "#fff" : C.ink,
-            whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
-            fontFamily: "'DM Mono', monospace",
-          }}>{b.text}</pre>
-        );
+        return <MarkdownText key={i} text={b.text} dark={dark} />;
       })}
     </>
+  );
+}
+
+// Renders assistant/user text as markdown so **bold**, headers, lists and
+// tables show as intended instead of literal asterisks/pipes (which is
+// unreadable on a phone). Tables are re-flowed into stacked label/value
+// rows per record — a fixed-width grid just gets crushed on narrow screens.
+function MarkdownText({ text, dark }) {
+  const fg = dark ? "#fff" : C.ink;
+  const soft = dark ? "rgba(255,255,255,0.75)" : C.inkSoft;
+  const line = dark ? "rgba(255,255,255,0.25)" : C.line;
+  const codeBg = dark ? "rgba(255,255,255,0.15)" : C.panelSoft;
+  const base = { fontSize: 13, lineHeight: 1.65, color: fg, fontFamily: "'DM Mono', monospace" };
+
+  return (
+    <div style={{ ...base, wordBreak: "break-word" }}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p style={{ margin: "0 0 10px", ...base }}>{children}</p>,
+          strong: ({ children }) => <strong style={{ fontWeight: 700, color: fg }}>{children}</strong>,
+          em: ({ children }) => <em>{children}</em>,
+          h1: ({ children }) => <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: fg }}>{children}</p>,
+          h2: ({ children }) => <p style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 800, color: fg }}>{children}</p>,
+          h3: ({ children }) => <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 800, color: fg }}>{children}</p>,
+          ul: ({ children }) => <ul style={{ margin: "0 0 10px", paddingLeft: 20, ...base }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ margin: "0 0 10px", paddingLeft: 20, ...base }}>{children}</ol>,
+          li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+          a: ({ children, href }) => <a href={href} target="_blank" rel="noreferrer" style={{ color: dark ? "#fff" : C.accent }}>{children}</a>,
+          hr: () => <hr style={{ border: 0, borderTop: `1px solid ${line}`, margin: "10px 0" }} />,
+          blockquote: ({ children }) => (
+            <div style={{ borderLeft: `2px solid ${line}`, paddingLeft: 10, margin: "0 0 10px", color: soft }}>{children}</div>
+          ),
+          code: ({ inline, children }) =>
+            inline ? (
+              <code style={{ background: codeBg, borderRadius: 4, padding: "1px 5px", fontSize: 12 }}>{children}</code>
+            ) : (
+              <code style={{ display: "block", background: codeBg, borderRadius: 8, padding: 10, fontSize: 12, overflowX: "auto", whiteSpace: "pre" }}>{children}</code>
+            ),
+          pre: ({ children }) => <pre style={{ margin: "0 0 10px" }}>{children}</pre>,
+          // Markdown tables get re-flowed into stacked cards: one card per row,
+          // each column shown as "label: value". Side-by-side columns are what
+          // made the raw table unreadable on a phone, so we don't reproduce
+          // that layout — the data is the same, just read top-to-bottom.
+          table: ({ node }) => <MarkdownTable node={node} fg={fg} soft={soft} line={line} />,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function cellText(node) {
+  if (!node) return "";
+  if (node.type === "text") return node.value || "";
+  if (node.children) return node.children.map(cellText).join("");
+  return "";
+}
+
+function MarkdownTable({ node, fg, soft, line }) {
+  const sections = (node.children || []).filter(c => c.type === "element");
+  const thead = sections.find(s => s.tagName === "thead");
+  const tbodies = sections.filter(s => s.tagName === "tbody");
+  const headerRow = (thead?.children || []).find(c => c.type === "element" && c.tagName === "tr");
+  const headers = (headerRow?.children || []).filter(c => c.type === "element").map(cellText);
+  const bodyRows = tbodies.flatMap(tb => (tb.children || []).filter(c => c.type === "element" && c.tagName === "tr"));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+      {bodyRows.map((row, ri) => {
+        const cells = (row.children || []).filter(c => c.type === "element");
+        return (
+        <div key={ri} style={{ border: `1px solid ${line}`, borderRadius: 10, padding: "8px 10px" }}>
+          {cells.map((cell, ci) => {
+            const value = cellText(cell);
+            if (!value) return null;
+            return (
+              <div key={ci} style={{ marginBottom: ci < cells.length - 1 ? 6 : 0 }}>
+                {headers[ci] && (
+                  <div style={{ fontSize: 10, fontWeight: 700, color: soft, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 1 }}>
+                    {headers[ci]}
+                  </div>
+                )}
+                <div style={{ fontSize: 13, color: fg, lineHeight: 1.5 }}>{value}</div>
+              </div>
+            );
+          })}
+        </div>
+        );
+      })}
+    </div>
   );
 }
 

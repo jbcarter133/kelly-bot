@@ -94,3 +94,11 @@ There is **no test suite** and no lint config. Proof of a change:
   redundant header was removed; there is now exactly one gate. If you edit this
   prompt, keep it that way — one instruction per rule, no restatements that can
   drift out of sync.
+- **Message text renders as markdown**, not raw text. `Content`/`MarkdownText`
+  in `KellyBot.jsx` use `react-markdown` + `remark-gfm` so `**bold**`, headers
+  and lists render instead of showing literal asterisks/pipes — that raw
+  output was unreadable on a phone (Kelly's structural style leans on bold
+  headers and GFM tables). Tables specifically are re-flowed by
+  `MarkdownTable` into one stacked label/value card per row rather than a
+  fixed multi-column `<table>`, since side-by-side columns are what broke on
+  narrow screens; the underlying data/order is unchanged, only the layout.
