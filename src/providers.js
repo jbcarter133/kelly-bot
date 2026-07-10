@@ -72,6 +72,31 @@ async function groqChat({ apiKey, model, system, messages, signal }) {
   return { reply };
 }
 
+// List the model IDs the given key can access, for the Settings dropdown.
+// Both endpoints are on the same hosts as chat, so no extra CSP entries needed.
+async function anthropicListModels(apiKey) {
+  const res = await fetch("https://api.anthropic.com/v1/models?limit=1000", {
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return (data.data || []).map((m) => m.id);
+}
+
+async function groqListModels(apiKey) {
+  const res = await fetch("https://api.groq.com/openai/v1/models", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  // Groq's list includes audio/guard/embedding models that can't chat.
+  return (data.data || []).map((m) => m.id).filter((id) => !/whisper|tts|guard|embed/i.test(id)).sort();
+}
+
 export const PROVIDERS = {
   anthropic: {
     id: "anthropic",
@@ -79,6 +104,7 @@ export const PROVIDERS = {
     keyHint: "sk-ant-… (platform.claude.com → API keys)",
     defaultModel: "claude-sonnet-4-20250514",
     chat: anthropicChat,
+    listModels: anthropicListModels,
   },
   groq: {
     id: "groq",
@@ -87,6 +113,7 @@ export const PROVIDERS = {
     defaultModel: "llama-3.3-70b-versatile",
     textOnly: true, // no image/PDF attachments, no web search
     chat: groqChat,
+    listModels: groqListModels,
   },
 };
 

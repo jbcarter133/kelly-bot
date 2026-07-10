@@ -342,7 +342,26 @@ export default function KellyBot() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [modelInput, setModelInput] = useState("");
+  const [modelList, setModelList] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState("");
   const [storageMode, setStorageModeState] = useState(() => getStorageMode());
+
+  // Fetch the model IDs this provider's key can access, to fill the dropdown.
+  async function loadModels(id = providerId, key) {
+    const k = ((key ?? keyInput) || "").trim() || getKey(id);
+    if (!k) { setModelList([]); return; }
+    setModelsError("");
+    setModelsLoading(true);
+    try {
+      setModelList(await PROVIDERS[id].listModels(k));
+    } catch {
+      setModelList([]);
+      setModelsError("Couldn't load models — check the key.");
+    } finally {
+      setModelsLoading(false);
+    }
+  }
 
   // Load a provider's stored key + model into the live state and the Settings
   // form. Called when the app opens Settings or the user switches provider.
@@ -352,13 +371,18 @@ export default function KellyBot() {
     setModelState(getModel(id));
     setKeyInput(getKey(id));
     setModelInput(getModel(id));
+    setModelList([]);
+    setModelsError("");
+    loadModels(id, getKey(id));
   }
 
   function openSettings() {
     setKeyInput(getKey(providerId));
     setModelInput(getModel(providerId));
     setStorageModeState(getStorageMode());
+    setModelsError("");
     setSettingsOpen(true);
+    loadModels(providerId, getKey(providerId));
   }
 
   useEffect(() => {
@@ -541,13 +565,24 @@ export default function KellyBot() {
                 placeholder={PROVIDERS[providerId].keyHint}
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 10 }}
               />
-              <input
-                type="text"
-                value={modelInput}
-                onChange={e => setModelInput(e.target.value)}
-                placeholder={`model (default: ${PROVIDERS[providerId].defaultModel})`}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 12 }}
-              />
+              <div style={{ display: "flex", gap: 6, marginBottom: modelsError ? 4 : 12 }}>
+                <select
+                  value={modelInput}
+                  onChange={e => setModelInput(e.target.value)}
+                  style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none" }}
+                >
+                  <option value="">Default — {PROVIDERS[providerId].defaultModel}</option>
+                  {modelInput && !modelList.includes(modelInput) && <option value={modelInput}>{modelInput}</option>}
+                  {modelList.map(id => <option key={id} value={id}>{id}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => loadModels()}
+                  aria-label="Load models" title="Load models available to this key"
+                  style={{ flexShrink: 0, padding: "0 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                >{modelsLoading ? "…" : "↻"}</button>
+              </div>
+              {modelsError && <p style={{ fontSize: 10, color: C.accent, marginBottom: 12 }}>{modelsError}</p>}
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.inkSoft, marginBottom: 16, cursor: "pointer" }}>
                 <input type="checkbox" checked={storageMode === "session"}
                   onChange={e => setStorageModeState(e.target.checked ? "session" : "local")} />

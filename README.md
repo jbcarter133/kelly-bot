@@ -29,7 +29,8 @@ kelly-bot/
 - **Copy** — one tap copies any of Kelly's responses (with a clipboard fallback for locked-down browsers).
 - **Gated web access** — Kelly can only look something up when *you* include a URL in your message. No link, no browsing. *(Anthropic only.)*
 - **Bring your own key** — pick a provider and paste your key in Settings (the gear, top right). It's stored only in your browser, per provider.
-- **Providers** — **Anthropic (Claude)** is the default and the full experience (images, PDFs, gated web search). **Groq (Llama)** is also supported for fast, free-tier text chat — but it's **text only** (no attachments, no web search), and Kelly's persona is Claude-tuned, so her output on a Llama model will read differently. Each provider has a default model you can override in Settings.
+- **Providers** — **Anthropic (Claude)** is the default and the full experience (images, PDFs, gated web search). **Groq (Llama)** is also supported for fast, free-tier text chat — but it's **text only** (no attachments, no web search), and Kelly's persona is Claude-tuned, so her output on a Llama model will read differently.
+- **Model picker** — Settings shows a **dropdown of the models your key can access** (fetched live from the provider; ↻ to refresh). Leave it on **Default** to use Kelly's tuned model.
 
 ---
 
@@ -69,6 +70,6 @@ Pushing to `main` builds and publishes to **GitHub Pages** automatically (`.gith
 
 - Each message re-sends the full conversation, so very long chats grow slower and pricier. Trimming old turns is a good future addition.
 - Output is capped per reply (`max_tokens`); raise it in `KellyBot.jsx` if you want longer answers.
-- Default models live in `src/providers.js` (Anthropic: `claude-sonnet-4-20250514`; Groq: `llama-3.3-70b-versatile`) and can be overridden per provider in Settings. The Anthropic default is a deprecated snapshot Kelly's persona is tuned to — it works today but will eventually stop being served; validate her output against any replacement before changing it.
+- Default models live in `src/providers.js` (Anthropic: `claude-sonnet-4-20250514`; Groq: `llama-3.3-70b-versatile`) and can be overridden from the Settings dropdown (populated live from the provider's `/models` endpoint). The Anthropic default is a deprecated snapshot Kelly's persona is tuned to — it works today but will eventually stop being served; her output on any other model reads differently, so leave it on **Default** unless you mean to change her.
 - Adding another OpenAI-compatible provider (OpenAI, OpenRouter, …) is a small entry in `src/providers.js` plus its host in the `connect-src` CSP.
 - `.env*` is gitignored as a guard — the app never asks you to put a key in a file.
