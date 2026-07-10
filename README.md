@@ -69,7 +69,7 @@ Pushing to `main` builds and publishes to **GitHub Pages** automatically (`.gith
 ## Notes & limits
 
 - Each message re-sends the full conversation, so very long chats grow slower and pricier. Trimming old turns is a good future addition.
-- Output is capped per reply (`max_tokens`); raise it in `KellyBot.jsx` if you want longer answers.
+- Output is capped per reply (`max_tokens`, set in `src/providers.js`, currently 4096). It needs headroom because models that run "thinking" (e.g. Sonnet 5, Opus) spend part of the budget reasoning before any visible text — too small and they return an empty reply.
 - Default models live in `src/providers.js` (Anthropic: `claude-sonnet-4-20250514`; Groq: `llama-3.3-70b-versatile`) and can be overridden from the Settings dropdown (populated live from the provider's `/models` endpoint). The Anthropic default is a deprecated snapshot Kelly's persona is tuned to — it works today but will eventually stop being served; her output on any other model reads differently, so leave it on **Default** unless you mean to change her.
 - Adding another OpenAI-compatible provider (OpenAI, OpenRouter, …) is a small entry in `src/providers.js` plus its host in the `connect-src` CSP.
 - `.env*` is gitignored as a guard — the app never asks you to put a key in a file.

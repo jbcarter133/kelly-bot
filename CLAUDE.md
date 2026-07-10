@@ -66,6 +66,16 @@ There is **no test suite** and no lint config. Proof of a change:
   locks `connect-src` to the provider hosts (`api.anthropic.com`,
   `api.groq.com`). Adding a provider to `providers.js` **requires** adding its
   host there too, or its requests fail silently under CSP.
+- **`max_tokens` (in `src/providers.js`) needs headroom for thinking models.**
+  Sonnet 5 / Opus run adaptive thinking by default and spend part of the budget
+  reasoning; too small (the old 1000) and they return content with no text
+  block, which surfaced as a bare "…". It's 4096 now, and `anthropicChat`
+  turns an empty/`max_tokens`-truncated reply into a clear message.
+- **BYOK means the user's key must have access to the model.** The default
+  `claude-sonnet-4-20250514` is deprecated and unavailable on some keys — a 404
+  (`not_found_error`) now renders as "That model isn't available on your key —
+  pick another in Settings" rather than the raw `model: <id>` text. The Settings
+  dropdown only lists models the key can actually use.
 - **Attachments and web search are Anthropic-only.** Groq is text-only:
   `providers.js` marks it `textOnly`, the paperclip is disabled on it, and
   `send()` only enables web search for Anthropic. Non-text message blocks are
