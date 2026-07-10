@@ -15,7 +15,8 @@ kelly-bot/
 ├── vite.config.js        # build config + Content-Security-Policy injection
 ├── src/
 │   ├── main.jsx          # mounts the app
-│   ├── keyStore.js       # stores the user's key in their browser (local/session)
+│   ├── providers.js      # provider registry (Anthropic, Groq) — request/response shapes
+│   ├── keyStore.js       # per-provider keys + model in the browser (local/session)
 │   └── KellyBot.jsx      # the whole bot (UI + persona + features)
 └── .github/workflows/
     └── deploy.yml         # builds and deploys to GitHub Pages
@@ -26,24 +27,25 @@ kelly-bot/
 - **Kelly persona** — every reply comes through her structural style (system model → levers → examples), with a dual-track literal/symbolic mode.
 - **Upload** — images and PDFs via drag-drop, paste, or the paperclip. Kelly reads them.
 - **Copy** — one tap copies any of Kelly's responses (with a clipboard fallback for locked-down browsers).
-- **Gated web access** — Kelly can only look something up when *you* include a URL in your message. No link, no browsing.
-- **Bring your own key** — paste your Anthropic key in Settings (the gear, top right). It's stored only in your browser.
+- **Gated web access** — Kelly can only look something up when *you* include a URL in your message. No link, no browsing. *(Anthropic only.)*
+- **Bring your own key** — pick a provider and paste your key in Settings (the gear, top right). It's stored only in your browser, per provider.
+- **Providers** — **Anthropic (Claude)** is the default and the full experience (images, PDFs, gated web search). **Groq (Llama)** is also supported for fast, free-tier text chat — but it's **text only** (no attachments, no web search), and Kelly's persona is Claude-tuned, so her output on a Llama model will read differently. Each provider has a default model you can override in Settings.
 
 ---
 
 ## How the security model works
 
 - This is a **static single-page app**. There is no server anywhere in this project.
-- You paste **your own** Anthropic key into Settings. It's stored only in your browser — `localStorage` by default, or "session only" mode which forgets it when the tab closes.
-- Requests go **directly from your browser to Anthropic** (`api.anthropic.com`). No key ever transits or rests on infrastructure we own, so there's nothing for us to leak.
-- Hardening: no third-party scripts, and a strict Content-Security-Policy (injected at build time) that only permits network calls to `api.anthropic.com` and font loads from Google Fonts.
-- Residual risk (accepted, standard for BYOK apps): anything with JavaScript access to this page could read `localStorage`. Use "session only" mode on shared machines, and set a **spend limit** on your Anthropic account regardless.
+- You paste **your own** provider key into Settings. It's stored only in your browser — `localStorage` by default, or "session only" mode which forgets it when the tab closes.
+- Requests go **directly from your browser to the provider** (`api.anthropic.com` or `api.groq.com`). No key ever transits or rests on infrastructure we own, so there's nothing for us to leak.
+- Hardening: no third-party scripts, and a strict Content-Security-Policy (injected at build time) that only permits network calls to the provider APIs and font loads from Google Fonts. *(Adding a provider means adding its host to `connect-src` in `vite.config.js`, or its requests are blocked.)*
+- Residual risk (accepted, standard for BYOK apps): anything with JavaScript access to this page could read `localStorage`. Use "session only" mode on shared machines, and set a **spend limit** on your provider account regardless.
 
 ---
 
 ## Run it locally
 
-You need [Node.js](https://nodejs.org/) 18+ and an Anthropic API key from <https://console.anthropic.com/>.
+You need [Node.js](https://nodejs.org/) 18+ and a provider key — Anthropic (<https://console.anthropic.com/>) or Groq (<https://console.groq.com/>, free tier).
 
 ```bash
 npm install
@@ -67,5 +69,6 @@ Pushing to `main` builds and publishes to **GitHub Pages** automatically (`.gith
 
 - Each message re-sends the full conversation, so very long chats grow slower and pricier. Trimming old turns is a good future addition.
 - Output is capped per reply (`max_tokens`); raise it in `KellyBot.jsx` if you want longer answers.
-- Model is set to `claude-sonnet-4-20250514` in `KellyBot.jsx` — a deprecated snapshot Kelly's persona is tuned to. It works today but will eventually stop being served; validate her output against any replacement before changing it.
+- Default models live in `src/providers.js` (Anthropic: `claude-sonnet-4-20250514`; Groq: `llama-3.3-70b-versatile`) and can be overridden per provider in Settings. The Anthropic default is a deprecated snapshot Kelly's persona is tuned to — it works today but will eventually stop being served; validate her output against any replacement before changing it.
+- Adding another OpenAI-compatible provider (OpenAI, OpenRouter, …) is a small entry in `src/providers.js` plus its host in the `connect-src` CSP.
 - `.env*` is gitignored as a guard — the app never asks you to put a key in a file.
