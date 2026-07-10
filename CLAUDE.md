@@ -55,13 +55,14 @@ There is **no test suite** and no lint config. Proof of a change:
 ## Gotchas
 
 - **Default models live in `src/providers.js`** (`defaultModel` per provider;
-  Anthropic `claude-sonnet-4-20250514`, Groq `llama-3.3-70b-versatile`). Settings
-  shows a **dropdown** populated by `provider.listModels(key)` (Anthropic
+  Anthropic `claude-sonnet-5`, Groq `llama-3.3-70b-versatile`). Settings shows
+  a **dropdown** populated by `provider.listModels(key)` (Anthropic
   `/v1/models`, Groq `/openai/v1/models` — same hosts as chat, already in the
-  CSP). An empty selection means "use the default". The Anthropic default is a
-  deprecated snapshot Kelly's persona is tuned to — works today, will eventually
-  stop being served. A model swap changes how she responds, so anything other
-  than Default reads differently.
+  CSP). An empty selection means "use the default", and the active model is
+  always visible as a header chip (tap → Settings). History: Kelly's persona
+  was originally tuned on the now-retired `claude-sonnet-4-20250514`; her voice
+  varies a little between models, so re-check her output when changing the
+  default.
 - **CSP ↔ providers must stay in sync.** The build-time CSP in `vite.config.js`
   locks `connect-src` to the provider hosts (`api.anthropic.com`,
   `api.groq.com`). Adding a provider to `providers.js` **requires** adding its
@@ -71,9 +72,8 @@ There is **no test suite** and no lint config. Proof of a change:
   reasoning; too small (the old 1000) and they return content with no text
   block, which surfaced as a bare "…". It's 4096 now, and `anthropicChat`
   turns an empty/`max_tokens`-truncated reply into a clear message.
-- **BYOK means the user's key must have access to the model.** The default
-  `claude-sonnet-4-20250514` is deprecated and unavailable on some keys — a 404
-  (`not_found_error`) now renders as "That model isn't available on your key —
+- **BYOK means the user's key must have access to the model.** A 404
+  (`not_found_error`) renders as "That model isn't available on your key —
   pick another in Settings" rather than the raw `model: <id>` text. The Settings
   dropdown only lists models the key can actually use.
 - **Attachments and web search are Anthropic-only.** Groq is text-only:

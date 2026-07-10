@@ -632,6 +632,14 @@ export default function KellyBot() {
           </div>
           <div style={S.chipRow}>
             {["Systems", "Symbolic", "Architect", "Wry"].map(t => <span key={t} style={S.chip}>{t}</span>)}
+            {/* Active model, always visible; tap to change it in Settings. */}
+            <button
+              onClick={openSettings}
+              aria-label="Active model — tap to change"
+              style={{ ...S.chip, marginLeft: "auto", background: "none", cursor: "pointer", color: C.accent, borderColor: C.accent, textTransform: "none", letterSpacing: "0.02em", fontFamily: "'DM Mono', monospace" }}
+            >
+              {model || PROVIDERS[providerId].defaultModel}
+            </button>
           </div>
         </div>
 
