@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { getKey, setKey, clearKey, getStorageMode, setStorageMode } from "./keyStore.js";
+import { getKey, setKey, clearKey, getStorageMode, setStorageMode, getProvider, setProvider, getModel, setModel } from "./keyStore.js";
+import { PROVIDERS, PROVIDER_IDS } from "./providers.js";
 
 const KELLY_SYSTEM = `You are a Claude instance configured to think and speak in the style, structure, and cognitive habits of Kelly. You do not imitate a biography; you imitate a mindset. You remain an AI, but your reasoning, structure, and expressive modes follow Kelly's characteristic "isms."
 
@@ -335,10 +336,30 @@ export default function KellyBot() {
   const textareaRef = useRef(null);
 
   // BYOK: the user's Anthropic key, held only in this browser (see keyStore.js).
-  const [apiKey, setApiKey] = useState(() => getKey());
+  const [providerId, setProviderId] = useState(() => getProvider());
+  const [apiKey, setApiKey] = useState(() => getKey(getProvider()));
+  const [model, setModelState] = useState(() => getModel(getProvider()));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyInput, setKeyInput] = useState("");
+  const [modelInput, setModelInput] = useState("");
   const [storageMode, setStorageModeState] = useState(() => getStorageMode());
+
+  // Load a provider's stored key + model into the live state and the Settings
+  // form. Called when the app opens Settings or the user switches provider.
+  function selectProvider(id) {
+    setProviderId(id);
+    setApiKey(getKey(id));
+    setModelState(getModel(id));
+    setKeyInput(getKey(id));
+    setModelInput(getModel(id));
+  }
+
+  function openSettings() {
+    setKeyInput(getKey(providerId));
+    setModelInput(getModel(providerId));
+    setStorageModeState(getStorageMode());
+    setSettingsOpen(true);
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -396,8 +417,9 @@ export default function KellyBot() {
   async function send(overrideText) {
     const txt = (overrideText ?? input).trim();
     if ((!txt && pending.length === 0) || loading) return;
+    const provider = PROVIDERS[providerId];
     // BYOK: no key, no call. Open Settings and keep the user's input intact.
-    if (!apiKey) { setKeyInput(apiKey); setSettingsOpen(true); return; }
+    if (!apiKey) { openSettings(); return; }
 
     // Build content blocks: attachments first, then text
     const userBlocks = [
@@ -420,53 +442,21 @@ export default function KellyBot() {
         : m.content.map(({ _name, ...b }) => b),
     }));
 
-    // Web access is GATED: only enabled when the user's message contains a URL.
-    const webEnabled = hasURL(txt);
-    const body = {
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: webEnabled
-        ? KELLY_SYSTEM + "\n\n---\n\nWEB ACCESS: The user has supplied a link in their message. You may use the web_search tool ONLY to look up the page(s) at the URL(s) they provided and answer questions about that content. Do not browse beyond what is needed to address the supplied link. If no link were present you would have no web access at all."
-        : KELLY_SYSTEM,
-      messages: apiMessages,
-    };
-    if (webEnabled) {
-      body.tools = [{ type: "web_search_20250305", name: "web_search" }];
-    }
+    // Web access is GATED and Anthropic-only: enabled when the message has a URL.
+    const webEnabled = provider.id === "anthropic" && hasURL(txt);
 
     try {
-      // BYOK: call Anthropic directly with the user's own key. The
-      // dangerous-direct-browser-access header is Anthropic's required opt-in
-      // for browser calls; the body is exactly what the proxy used to forward.
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify(body),
+      // BYOK: the chosen provider calls its API directly with the user's key.
+      const { reply, error } = await provider.chat({
+        apiKey,
+        model: model || provider.defaultModel,
+        system: KELLY_SYSTEM,
+        messages: apiMessages,
+        webEnabled,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        const hint = res.status === 401
-          ? "Your API key was rejected — check it in Settings."
-          : res.status === 429
-            ? "Rate limited or out of credit on your Anthropic account."
-            : (data?.error?.message || `Request failed (HTTP ${res.status}).`);
-        setMessages(prev => [...prev, { role: "assistant", content: `⚠︎ ${hint}` }]);
-        return;
-      }
-      // Concatenate all text blocks (web_search responses can be multi-block)
-      const reply = (data.content || [])
-        .filter(b => b.type === "text")
-        .map(b => b.text)
-        .join("\n")
-        .trim() || "…";
-      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+      setMessages(prev => [...prev, { role: "assistant", content: error ? `⚠︎ ${error}` : reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Network error reaching Anthropic. Check your connection." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: `Network error reaching ${provider.label}. Check your connection.` }]);
     } finally {
       setLoading(false);
     }
@@ -529,15 +519,33 @@ export default function KellyBot() {
             style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <div onClick={e => e.stopPropagation()}
               style={{ width: "100%", maxWidth: 380, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, fontFamily: "'DM Mono', monospace" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>Anthropic API key</div>
-              <p style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
-                Stored only in this browser and sent only to api.anthropic.com — there is no server. Get one at platform.claude.com → API keys.
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>Provider &amp; API key</div>
+
+              <select
+                value={providerId}
+                onChange={e => selectProvider(e.target.value)}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 10 }}
+              >
+                {PROVIDER_IDS.map(id => <option key={id} value={id}>{PROVIDERS[id].label}</option>)}
+              </select>
+
+              <p style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
+                Stored only in this browser, sent only to the provider. Key: {PROVIDERS[providerId].keyHint}
+                {PROVIDERS[providerId].textOnly ? " — text only (no image/PDF or web search)." : "."}
               </p>
+
               <input
                 type="password"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
-                placeholder="sk-ant-…"
+                placeholder={PROVIDERS[providerId].keyHint}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 10 }}
+              />
+              <input
+                type="text"
+                value={modelInput}
+                onChange={e => setModelInput(e.target.value)}
+                placeholder={`model (default: ${PROVIDERS[providerId].defaultModel})`}
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 12 }}
               />
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.inkSoft, marginBottom: 16, cursor: "pointer" }}>
@@ -547,11 +555,19 @@ export default function KellyBot() {
               </label>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
-                  onClick={() => { setStorageMode(storageMode); setKey(keyInput); setApiKey(keyInput.trim()); setSettingsOpen(false); }}
+                  onClick={() => {
+                    setStorageMode(storageMode);
+                    setProvider(providerId);
+                    setKey(providerId, keyInput);
+                    setModel(providerId, modelInput);
+                    setApiKey(keyInput.trim());
+                    setModelState(modelInput.trim());
+                    setSettingsOpen(false);
+                  }}
                   style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: C.accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
                 >Save</button>
                 <button
-                  onClick={() => { clearKey(); setApiKey(""); setKeyInput(""); }}
+                  onClick={() => { clearKey(providerId); setApiKey(""); setKeyInput(""); }}
                   style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
                 >Clear</button>
               </div>
@@ -569,8 +585,8 @@ export default function KellyBot() {
               <span style={{ fontSize: 10, color: C.faint, letterSpacing: "0.12em", textTransform: "uppercase" }}>Active</span>
             </div>
             <button
-              onClick={() => { setKeyInput(apiKey); setStorageModeState(getStorageMode()); setSettingsOpen(true); }}
-              aria-label="API key settings" title="API key settings"
+              onClick={openSettings}
+              aria-label="API key settings" title={`${PROVIDERS[providerId].label} · ${model || PROVIDERS[providerId].defaultModel}`}
               style={{ background: "none", border: "none", cursor: "pointer", color: apiKey ? C.faint : C.accent, padding: 4, display: "flex", marginLeft: 4 }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -633,7 +649,9 @@ export default function KellyBot() {
 
           <div style={S.inputRow}>
             {/* Upload — label wraps the input so the click is native (works in sandboxed iframes) */}
-            <label aria-label="Attach file" style={{ ...S.iconBtn, opacity: loading ? 0.5 : 1, pointerEvents: loading ? "none" : "auto" }}>
+            <label aria-label="Attach file"
+              title={PROVIDERS[providerId].textOnly ? "Attachments are Anthropic-only" : "Attach image or PDF"}
+              style={{ ...S.iconBtn, opacity: (loading || PROVIDERS[providerId].textOnly) ? 0.4 : 1, pointerEvents: (loading || PROVIDERS[providerId].textOnly) ? "none" : "auto" }}>
               <input type="file" accept="image/*,application/pdf" multiple onChange={handleFiles}
                 style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", clip: "rect(0 0 0 0)" }} />
               <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
