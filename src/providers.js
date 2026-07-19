@@ -2,9 +2,11 @@
 // (system prompt + message history) into a request for its own API and return
 // the reply text. Raw fetch, no SDK, to match the rest of the app.
 //
-// The Anthropic path is byte-identical to the original single-provider version
-// — same endpoint, body, and web-search gating — so Kelly is unchanged there.
-// Groq is OpenAI-compatible and text-only (no images/PDFs, no web search).
+// The Anthropic path matches the original single-provider version — same
+// endpoint, body, and web-search gating — except for prompt-caching
+// `cache_control` markers, which affect billing only, so Kelly is unchanged
+// there. Groq is OpenAI-compatible and text-only (no images/PDFs, no web
+// search).
 
 // Headroom for models that run "thinking" (e.g. Sonnet 5): with a tiny budget
 // the thinking can consume everything and leave no visible reply text.
@@ -20,13 +22,39 @@ function errText(status, msg) {
 const WEB_ADDENDUM =
   "\n\n---\n\nWEB ACCESS: The user has supplied a link in their message. You may use the web_search tool ONLY to look up the page(s) at the URL(s) they provided and answer questions about that content. Do not browse beyond what is needed to address the supplied link. If no link were present you would have no web access at all.";
 
+// Prompt caching: Kelly's persona prompt (~3.4k tokens) and the growing chat
+// history repeat verbatim on every turn, so mark the last block of the last
+// message as a cache breakpoint — the whole conversation prefix (system +
+// prior turns) rolls into cache and repeats bill at a tenth of base input
+// price. Clones rather than mutates; the caller's message objects come from
+// React state. Cache entries live ~5 minutes, so slow-paced chats just miss
+// and pay the normal price.
+function withLastBlockCached(messages) {
+  if (!messages.length) return messages;
+  const last = messages[messages.length - 1];
+  const blocks =
+    typeof last.content === "string"
+      ? [{ type: "text", text: last.content }]
+      : last.content.map((b) => ({ ...b }));
+  blocks[blocks.length - 1].cache_control = { type: "ephemeral" };
+  return [...messages.slice(0, -1), { ...last, content: blocks }];
+}
+
 // Anthropic (Claude) — content blocks, top-level system, gated web search.
 async function anthropicChat({ apiKey, model, system, messages, webEnabled, signal }) {
   const body = {
     model,
     max_tokens: MAX_TOKENS,
-    system: webEnabled ? system + WEB_ADDENDUM : system,
-    messages,
+    // System as a block array so it can carry its own cache breakpoint.
+    // Toggling web access rewrites the text, which just misses the cache once.
+    system: [
+      {
+        type: "text",
+        text: webEnabled ? system + WEB_ADDENDUM : system,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: withLastBlockCached(messages),
   };
   if (webEnabled) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
 

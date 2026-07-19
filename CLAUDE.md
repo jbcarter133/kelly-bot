@@ -12,7 +12,8 @@ A Claude-powered chat SPA that answers in "Kelly's" voice. React + Vite,
   returns the reply text (raw `fetch`, no SDK):
   - **anthropic** — POSTs to `api.anthropic.com/v1/messages` (`x-api-key` +
     `anthropic-dangerous-direct-browser-access: true`); content blocks; gated
-    web search. This path is byte-identical to the original — Kelly unchanged.
+    web search; prompt caching via `cache_control` (billing only — Kelly's
+    behavior unchanged from the original).
   - **groq** — POSTs to `api.groq.com/openai/v1/chat/completions` (OpenAI
     shape, `Bearer` auth); **text only** (attachments/web dropped);
     `temperature: 0.6` (default ~1.0 let some models invent fictional
@@ -84,8 +85,12 @@ There is **no test suite** and no lint config. Proof of a change:
   `providers.js` marks it `textOnly`, the paperclip is disabled on it, and
   `send()` only enables web search for Anthropic. Non-text message blocks are
   dropped when flattening to the OpenAI shape.
-- The Anthropic request body is unchanged from the original — Kelly's behavior
-  on Anthropic is identical; only the transport changed (proxy → direct BYOK).
+- The Anthropic request body matches the original except for **prompt-caching
+  `cache_control` markers** (on the system block and the last message block) —
+  billing metadata only, so Kelly's behavior on Anthropic is identical; only
+  the transport changed (proxy → direct BYOK). Cached prefixes expire after
+  ~5 minutes (slow chats just miss and pay base price), and toggling web
+  access rewrites the system text, costing one cache miss.
 - **The persona prompt (`KELLY_SYSTEM` in `KellyBot.jsx`) previously
   contradicted itself on Sledgehammer.** One block said "ONLY reference... when
   the user specifically asks"; a second, later block said "you have working
