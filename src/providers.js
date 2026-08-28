@@ -1,10 +1,9 @@
-// Provider registry. Each provider knows how to turn Kelly's shared inputs
-// (system prompt + message history) into a request for its own API and return
+// Provider registry. The provider knows how to turn Kelly's shared inputs
+// (system prompt + message history) into a request for its API and return
 // the reply text. Raw fetch, no SDK, to match the rest of the app.
 //
-// The Anthropic path is byte-identical to the original single-provider version
-// — same endpoint, body, and web-search gating — so Kelly is unchanged there.
-// Groq is OpenAI-compatible and text-only (no images/PDFs, no web search).
+// This is byte-identical to the original single-provider version — same
+// endpoint, body, and web-search gating — so Kelly is unchanged here.
 
 // Headroom for models that run "thinking" (e.g. Sonnet 5): with a tiny budget
 // the thinking can consume everything and leave no visible reply text.
@@ -58,53 +57,7 @@ async function anthropicChat({ apiKey, model, system, messages, webEnabled, work
   return { reply };
 }
 
-// OpenAI chat-completions shape: system as the first message, content as plain
-// text. Non-text blocks (images/PDFs) are dropped — these models can't read them.
-function toChatMessages(system, messages) {
-  const flat = messages.map((m) => ({
-    role: m.role,
-    content:
-      typeof m.content === "string"
-        ? m.content
-        : m.content.filter((b) => b.type === "text").map((b) => b.text).join("\n"),
-  }));
-  return [{ role: "system", content: system }, ...flat];
-}
-
-// Kelly's prompt opens by telling the model it's "a Claude instance" — true on
-// Anthropic, but on a non-Claude model it invites cosplay ("wrapped in a Kelly
-// kernel", invented pipeline stages) instead of just adopting the mindset.
-// Swap the self-identification only; leave factual Claude mentions elsewhere
-// in the prompt (e.g. the Sledgehammer project history) untouched.
-function groqSystemPrompt(system) {
-  return system.replace("You are a Claude instance configured to think", "You are an AI configured to think");
-}
-
-// Groq — OpenAI-compatible, text only (no attachments, no web search).
-async function groqChat({ apiKey, model, system, messages, signal }) {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      max_tokens: MAX_TOKENS,
-      // Lower than the API default (~1.0) — cuts down on the invented
-      // "deterministic core / pattern-map cache" style architecture some
-      // Groq models confabulate when improvising around the persona.
-      temperature: 0.6,
-      messages: toChatMessages(groqSystemPrompt(system), messages),
-    }),
-    signal,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { error: errText(res.status, data?.error?.message) };
-  const reply = (data.choices?.[0]?.message?.content || "").trim();
-  if (!reply) return { error: "The model returned no text — try again, or pick a different model in Settings." };
-  return { reply };
-}
-
 // List the model IDs the given key can access, for the Settings dropdown.
-// Both endpoints are on the same hosts as chat, so no extra CSP entries needed.
 async function anthropicListModels(apiKey, workspaceId) {
   const res = await fetch("https://api.anthropic.com/v1/models?limit=1000", {
     headers: {
@@ -119,16 +72,6 @@ async function anthropicListModels(apiKey, workspaceId) {
   return (data.data || []).map((m) => m.id);
 }
 
-async function groqListModels(apiKey) {
-  const res = await fetch("https://api.groq.com/openai/v1/models", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  // Groq's list includes audio/guard/embedding models that can't chat.
-  return (data.data || []).map((m) => m.id).filter((id) => !/whisper|tts|guard|embed/i.test(id)).sort();
-}
-
 export const PROVIDERS = {
   anthropic: {
     id: "anthropic",
@@ -138,15 +81,6 @@ export const PROVIDERS = {
     chat: anthropicChat,
     listModels: anthropicListModels,
   },
-  groq: {
-    id: "groq",
-    label: "Groq (Llama)",
-    keyHint: "gsk_… (console.groq.com → API keys, free tier)",
-    defaultModel: "llama-3.3-70b-versatile",
-    textOnly: true, // no image/PDF attachments, no web search
-    chat: groqChat,
-    listModels: groqListModels,
-  },
 };
 
-export const PROVIDER_IDS = ["anthropic", "groq"];
+export const PROVIDER_IDS = ["anthropic"];
