@@ -302,7 +302,10 @@ function UserBubble({ content }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "0 16px", flexDirection: "row-reverse" }}>
       <div style={{ width: 32, height: 32, borderRadius: 8, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-        <span style={{ color: "white", fontSize: 11, fontWeight: 800, fontFamily: "'Syne', sans-serif" }}>J</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+        </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: C.faint, marginBottom: 6, letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: "'Syne', sans-serif" }}>You</p>
