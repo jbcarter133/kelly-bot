@@ -1,14 +1,13 @@
 // BYOK storage. Each provider's key lives only in this browser and is sent only
 // to that provider's API — there is no backend. "local" persists across
-// sessions; "session" forgets the keys when the tab closes. The selected
-// provider and each provider's chosen model persist in localStorage regardless
-// of mode (they're preferences, not secrets).
+// sessions; "session" forgets the keys when the tab closes. Each provider's
+// chosen model persists in localStorage regardless of mode (it's a
+// preference, not a secret).
 import { PROVIDER_IDS } from "./providers.js";
 
 const keyName = (provider) => `kellybot.key.${provider}`;
 const modelName = (provider) => `kellybot.model.${provider}`;
 const workspaceIdName = (provider) => `kellybot.workspaceId.${provider}`;
-const PROVIDER_KEY = "kellybot.provider";
 const MODE_KEY = "kellybot.keymode";
 
 export function getStorageMode() {
@@ -45,16 +44,6 @@ export function setKey(provider, key) {
 export function clearKey(provider) {
   localStorage.removeItem(keyName(provider));
   sessionStorage.removeItem(keyName(provider));
-}
-
-// Selected provider (preference).
-export function getProvider() {
-  const p = localStorage.getItem(PROVIDER_KEY);
-  return PROVIDER_IDS.includes(p) ? p : PROVIDER_IDS[0];
-}
-
-export function setProvider(provider) {
-  if (PROVIDER_IDS.includes(provider)) localStorage.setItem(PROVIDER_KEY, provider);
 }
 
 // Per-provider model override (preference); "" means use the provider default.

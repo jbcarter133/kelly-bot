@@ -5,9 +5,9 @@ import react from "@vitejs/plugin-react";
 // Anthropic directly with the user's own key (entered in Settings).
 //
 // Strict-ish CSP injected at build time only (the dev server needs its HMR
-// websocket): scripts only from self, network egress only to the LLM
-// providers (Anthropic, Groq). Inline styles + Google Fonts are permitted
-// because the UI is styled inline and loads its typefaces from Google Fonts.
+// websocket): scripts only from self, network egress only to the Anthropic
+// API. Inline styles + Google Fonts are permitted because the UI is styled
+// inline and loads its typefaces from Google Fonts.
 // NOTE: keep connect-src in sync with the providers in src/providers.js —
 // adding a provider host here is required or its requests fail under CSP.
 const csp = [
@@ -16,7 +16,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data:",
-  "connect-src 'self' https://api.anthropic.com https://api.groq.com",
+  "connect-src 'self' https://api.anthropic.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
