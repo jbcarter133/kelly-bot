@@ -8,13 +8,12 @@
 
 `tests/accessibility.spec.js` (run with `npm run test:a11y`) is an executable companion to this document — one test per finding below where automation can meaningfully check it: an axe-core scan of both the empty state and the open Settings dialog, a WCAG 1.4.4/1.4.10 zoom/reflow check, a forced-colors (Windows High Contrast) smoke check, keyboard-focus-visibility and Tab-order checks, and accessible-name checks on the form fields. No Anthropic key is needed — every check runs against static UI structure that renders before any API call.
 
-As of this pass: **13 passing / 0 failing**. Findings 1, 2, 3, 4, 5, and 6 are all now regression-locked by passing tests:
+As of this pass: **18 passing / 0 failing**. Every finding in this document (1–10) is now regression-locked by passing tests:
 - Findings 1 and 2 (viewport zoom lock, missing focus indicators) are locked by passing tests.
 - Finding 3 (`C.faint` contrast) and finding 6 (missing accessible names) are both fixed — the axe-core scan, which previously flagged `color-contrast` and `select-name`/label violations on both views, now comes back clean of critical/serious findings on both.
 - Finding 4 (modal dialog semantics/focus trap) is fixed — Tab no longer escapes the dialog, `role="dialog"`/`aria-modal`/`aria-labelledby` are present, initial focus moves into the dialog on open, and Escape closes it and returns focus to the trigger button. Three tests cover this now: the original Tab-order test plus two added for this fix.
 - Finding 5 (no live region on new messages) is fixed — two tests cover it, one structural (the log region carries `aria-live="polite"`) and one end-to-end: a mocked `/v1/messages` response is used to actually exercise the send flow (no real key needed) and confirm the typing indicator's text alternative is present while the request is in flight, and the reply lands inside the live region once it resolves.
-
-Still open: the "Minor / notes" items 7–10.
+- Findings 7–10 (headings, copy-button status, target size, landmarks) are all fixed — see each finding below for what changed and which test covers it.
 
 When you fix a finding, its test should go green; keep this doc and the suite in sync in the same change.
 
@@ -104,33 +103,41 @@ The message list (`S.msgList`) has no `aria-live` region and no `role="log"`. Wh
 
 ## Moderate
 
-### 7. No heading structure anywhere in the app
+### 7. No heading structure anywhere in the app — FIXED
 **WCAG 1.3.1 Info and Relationships (A), 2.4.6 Headings and Labels (AA)** — entire file
 
 There is not a single `<h1>`–`<h6>` in the app. "Kelly" (nav title, line 609) and "Kelly is listening" (empty-state heading, line 644) are both plain `<span>`/`<p>`. Screen reader users navigating by heading (a primary AT navigation method) get nothing to jump to.
 
 **Fix:** at minimum, mark the nav title (or a visually-hidden page title) as `<h1>`, and the empty-state prompt as `<h2>`.
 
-### 8. Copy-button state change isn't announced
+**Applied:** exactly that — the nav title is now an `<h1>`, the empty-state prompt an `<h2>` (both keep their original inline styling, with `margin: 0` added so the heading elements' default browser margins don't shift the layout — confirmed visually, no layout change).
+
+### 8. Copy-button state change isn't announced — FIXED
 **WCAG 4.1.3 Status Messages (AA)** — `src/KellyBot.jsx:213-239`
 
 `CopyButton` swaps its visible label between "copy" and "copied" (with an `aria-label="Copy response"` that never changes) but there's no `aria-live` region carrying the confirmation, so screen reader users don't get positive feedback that the copy succeeded.
 
 **Fix:** add `aria-live="polite"` to the button or a nearby visually-hidden status node, or toggle `aria-label` itself between "Copy response" and "Copied".
 
-### 9. Small interactive targets
+**Applied:** a visually-hidden `<span role="status" aria-live="polite">` inside the button, empty when idle and reading "Copied to clipboard" while `copied` is true. Because the button keeps its fixed `aria-label`, this doesn't change the button's own accessible name — it's a separate, independently-announced status node. Verified end-to-end (mocked send flow, real click, assert the status text) rather than just checking markup.
+
+### 9. Small interactive targets — FIXED
 **WCAG 2.5.8 Target Size (Minimum) (AA, WCAG 2.2)** — `src/KellyBot.jsx:679` (pending-attachment remove "×"), `563` (↻ load-models button)
 
 The pending-attachment remove button has `padding: 0`, `fontSize: 14`, and no explicit width/height — its hit area is close to the glyph's rendered size, almost certainly under the 24×24 CSS px minimum. The "↻" load-models button (`padding: "0 12px"`, no vertical padding or explicit height) is likely short of 24px tall too. Contrast with the rest of the app: the file-attach and send buttons are correctly sized at 44×44 (lines 499, 502).
 
 **Fix:** give both a minimum 24×24 (ideally 44×44 to match the rest of the toolbar) hit area via explicit `width`/`height`/`padding`.
 
-### 10. No landmark regions
+**Applied:** the remove button now has an explicit 24×24 flex-centered hit area (its chip grows a couple of px to fit, which is the intended tradeoff). The reload button got `minWidth: 44, minHeight: 44` to match the rest of the toolbar's controls. Both measured via `boundingBox()` in the test suite, not just eyeballed.
+
+### 10. No landmark regions — FIXED
 **WCAG 1.3.1 Info and Relationships (A), 2.4.1 Bypass Blocks (A)** — entire file
 
 The whole UI is unstructured `div`s: no `<header>`/`<nav>`/`<main>` and no ARIA landmark roles. There's no repeated block of navigation to "bypass" today (the app is a single view), so this is lower urgency than the items above, but it means AT users navigating by landmark (another primary AT strategy, alongside headings) get nothing.
 
 **Fix:** wrap the nav bar in `<header>`/`nav` role, the message list in `<main>`, and the composer in a labelled `<form>`/`role="form"` region.
+
+**Applied:** the nav bar is now a `<header>` (computes to the `banner` landmark), the message list is wrapped in a `<main style={{ display: "contents" }}>` (the `display: contents` keeps the existing flex layout exactly as it was — the wrapper adds a landmark without becoming a layout box), and the composer toolbar carries `role="form" aria-label="Send a message"`. A real `<form>` element was deliberately avoided there: the Send button has no `type` attribute, so inside a native `<form>` it would default to `type="submit"` and trigger a page-reloading native submission alongside the existing `onClick` handler — `role="form"` gets the landmark without that risk.
 
 ---
 
@@ -164,6 +171,6 @@ Still open — these need a human, not a browser automation tool:
 3. ~~Finding 6 (form labels) — localized, no visual change.~~ **Done.**
 4. ~~Finding 4 (modal semantics/focus trap) — dialog role, focus management, Tab trap, Escape.~~ **Done.**
 5. ~~Finding 5 (message live region) — `role="log"`, typing-indicator text alternative.~~ **Done.**
-6. Findings 7–10 as follow-up cleanup.
+6. ~~Findings 7–10 (headings, copy-button status, target size, landmarks) — follow-up cleanup.~~ **Done.**
 
-Findings 1–6 have all been applied (see notes above) — `npm run test:a11y` is fully green (13/13). Only the "Minor / notes" items (7–10: no heading structure, unannounced copy-button state, a couple of undersized tap targets, no landmark regions) are still open. Happy to implement any of them on request.
+All ten findings have been applied (see notes above) — `npm run test:a11y` is fully green (18/18). What's left is the "Minor / notes" section above (all passes or low-severity notes, nothing actionable) and the one item under "Not yet verified": real screen reader testing.

@@ -246,6 +246,7 @@ function CopyButton({ content }) {
           </svg>copy
         </>
       )}
+      <span role="status" aria-live="polite" style={srOnly}>{copied ? "Copied to clipboard" : ""}</span>
     </button>
   );
 }
@@ -613,7 +614,7 @@ export default function KellyBot() {
                   type="button"
                   onClick={() => loadModels()}
                   aria-label="Load models" title="Load models available to this key"
-                  style={{ flexShrink: 0, padding: "0 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                  style={{ flexShrink: 0, minWidth: 44, minHeight: 44, padding: "0 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
                 >{modelsLoading ? "…" : "↻"}</button>
               </div>
               {modelsError && <p style={{ fontSize: 10, color: C.accent, marginBottom: 12 }}>{modelsError}</p>}
@@ -657,10 +658,10 @@ export default function KellyBot() {
         )}
 
         {/* Nav */}
-        <div style={S.navbar}>
+        <header style={S.navbar}>
           <div style={S.navRow}>
             <div style={S.navIcon}><span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 800, fontFamily: "'Syne', sans-serif" }}>K</span></div>
-            <span style={S.navTitle}>Kelly</span>
+            <h1 style={{ ...S.navTitle, margin: 0 }}>Kelly</h1>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", display: "block" }} />
               <span style={{ fontSize: 10, color: C.faint, letterSpacing: "0.12em", textTransform: "uppercase" }}>Active</span>
@@ -687,15 +688,16 @@ export default function KellyBot() {
               {model || provider.defaultModel}
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Messages */}
-        <div style={S.msgList} role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions">
+        <main style={{ display: "contents" }}>
+          <div style={S.msgList} role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions">
           {isEmpty && (
             <div style={S.emptyWrap}>
               <div>
                 <div style={{ fontSize: 36, color: C.line, marginBottom: 12 }}>◈</div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: C.faint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>Kelly is listening</p>
+                <h2 style={{ fontSize: 11, fontWeight: 700, color: C.faint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "'Syne', sans-serif", margin: 0, marginBottom: 4 }}>Kelly is listening</h2>
                 <p style={{ fontSize: 12, color: C.faint, fontStyle: "italic" }}>Bring a system, a pattern, or a file.</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 300 }}>
@@ -716,9 +718,10 @@ export default function KellyBot() {
           )}
           <div ref={bottomRef} />
         </div>
+        </main>
 
         {/* Input */}
-        <div style={S.toolbar}>
+        <div style={S.toolbar} role="form" aria-label="Send a message">
           {/* Staged attachments */}
           {pending.length > 0 && (
             <div style={S.pendingRow}>
@@ -730,7 +733,7 @@ export default function KellyBot() {
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5l3 3V14a.5.5 0 01-.5.5H4a.5.5 0 01-.5-.5V2a.5.5 0 01.5-.5z" stroke={C.accent} strokeWidth="1.3" /><path d="M9 1.5V4.5H12" stroke={C.accent} strokeWidth="1.3" /></svg>
                   )}
                   <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p._name}</span>
-                  <button onClick={() => removePending(i)} aria-label="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: C.accent, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  <button onClick={() => removePending(i)} aria-label="Remove" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: C.accent, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
                 </div>
               ))}
             </div>

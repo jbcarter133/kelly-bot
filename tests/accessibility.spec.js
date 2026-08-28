@@ -143,6 +143,59 @@ test.describe("status messages (WCAG 4.1.3)", () => {
     // And once the reply lands, it should be inside the same log region.
     await expect(page.getByRole("log").getByText("Test reply from Kelly.")).toBeVisible();
   });
+
+  test("copy button announces success via a status region", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => localStorage.setItem("kellybot.key.anthropic", "sk-ant-test-key"));
+    await page.route("**/v1/messages", async (route) => {
+      await route.fulfill({ json: { content: [{ type: "text", text: "Reply text" }] } });
+    });
+    await page.goto("/");
+    await page.getByRole("textbox", { name: /message/i }).fill("Hi");
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByRole("log").getByText("Reply text")).toBeVisible();
+
+    await page.getByRole("button", { name: "Copy response" }).click();
+    await expect(page.getByRole("status")).toHaveText("Copied to clipboard");
+  });
+});
+
+test.describe("headings and landmarks (WCAG 1.3.1, 2.4.1, 2.4.6)", () => {
+  test("a single h1 names the app, and the empty state uses a heading", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: "Kelly" })).toBeVisible();
+    await expect(page.locator("h1")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 2, name: /kelly is listening/i })).toBeVisible();
+  });
+
+  test("nav, messages, and composer are exposed as landmarks", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("banner")).toBeVisible();
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("form", { name: /send a message/i })).toBeVisible();
+  });
+});
+
+test.describe("target size (WCAG 2.5.8)", () => {
+  test("the model-reload button meets the 24x24 minimum", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "API key settings" }).click();
+    const box = await page.getByRole("button", { name: "Load models" }).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+  });
+
+  test("the pending-attachment remove button meets the 24x24 minimum", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "test.png",
+      mimeType: "image/png",
+      buffer: Buffer.from([0, 1, 2, 3]),
+    });
+    const box = await page.getByRole("button", { name: "Remove" }).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+  });
 });
 
 test.describe("form field labels (WCAG 1.3.1, 3.3.2, 4.1.2)", () => {
