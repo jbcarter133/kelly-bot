@@ -531,7 +531,7 @@ export default function KellyBot() {
         {settingsOpen && (
           <div onClick={() => setSettingsOpen(false)}
             style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div onClick={e => e.stopPropagation()}
+            <div onClick={e => e.stopPropagation()} data-testid="settings-dialog"
               style={{ width: "100%", maxWidth: 380, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, fontFamily: "'DM Mono', monospace" }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>{provider.label} API key</div>
 

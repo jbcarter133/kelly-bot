@@ -2,7 +2,21 @@
 
 **Standard:** WCAG 2.1/2.2, Level AA
 **Scope:** `index.html`, `src/main.jsx`, `src/KellyBot.jsx` (the entire UI — there is no other rendering code), `src/keyStore.js` (no UI surface)
-**Method:** Static review of markup/ARIA/styles + manual contrast-ratio calculation against the locked light palette (`src/KellyBot.jsx:140-154`). No screen reader or browser was driven for this pass — see "Not yet verified" at the end.
+**Method:** Static review of markup/ARIA/styles + manual contrast-ratio calculation against the locked light palette (`src/KellyBot.jsx:140-154`), now backed by an executable Playwright + axe-core suite — see "Automated checks" below.
+
+## Automated checks
+
+`tests/accessibility.spec.js` (run with `npm run test:a11y`) is an executable companion to this document — one test per finding below where automation can meaningfully check it: an axe-core scan of both the empty state and the open Settings dialog, a WCAG 1.4.4/1.4.10 zoom/reflow check, a forced-colors (Windows High Contrast) smoke check, keyboard-focus-visibility and Tab-order checks, and accessible-name checks on the form fields. No Anthropic key is needed — every check runs against static UI structure that renders before any API call.
+
+As of this pass: **4 passing / 5 failing**, and the failures are expected — they *are* the still-open findings below, made executable instead of predicted from a static read:
+- Findings 1 and 2 (viewport zoom lock, missing focus indicators) are now regression-locked by passing tests.
+- The axe-core scan independently confirms finding 3 (`color-contrast` violations) and finding 6 (`select-name`/label violations) on both views.
+- The Tab-order test confirms finding 4 for real: focus escapes the open Settings dialog into the page behind it after just **one** Tab press (previously only predicted from reading the code, not observed).
+- The accessible-name tests confirm the model `<select>` and message `<textarea>` have no discoverable name (finding 6).
+
+When you fix a finding, its test should go green; keep this doc and the suite in sync in the same change.
+
+**What this suite does *not* replace:** real screen reader testing (VoiceOver/NVDA) and a human keyboard-only walkthrough. Axe-core and Playwright's accessibility-tree queries are a strong proxy but don't verify how content actually sounds when announced.
 
 Findings are ordered by severity. Each cites the WCAG success criterion, level, and file:line.
 
@@ -48,13 +62,13 @@ All four interactive form fields — the message `textarea`, the API-key `input`
 
 **Fix:** darken `faint` (e.g. something in the `#78716c`–`#6b6660` range gets you to ~4.5:1 on `#f7f5f0`) or stop using it for anything that conveys text/icon meaning; reserve a low-contrast tone strictly for non-essential decoration.
 
-### 4. Settings modal is not a real dialog — no focus containment, no accessible name/role
+### 4. Settings modal is not a real dialog — no focus containment, no accessible name/role — CONFIRMED
 **WCAG 2.4.3 Focus Order (A), 4.1.2 Name, Role, Value (A)** — `src/KellyBot.jsx:531-603`
 
 The modal is a plain `div` with a click-outside-to-close handler; it has no `role="dialog"`, no `aria-modal="true"`, no `aria-labelledby` pointing at its title ("Anthropic API key", line 536), and nothing marks the rest of the page `inert`/`aria-hidden` while it's open. Concretely:
 
 - A screen reader user tabbing into it gets no announcement that a dialog opened, or what it's called.
-- Tab order is not trapped: because the modal markup sits *before* the navbar/messages/toolbar in the JSX, tabbing forward from the modal's last control lands back on the page's nav gear, message list, and input — all still interactive and visible underneath the open modal.
+- Tab order is not trapped: because the modal markup sits *before* the navbar/messages/toolbar in the JSX, tabbing forward from the modal's last control lands back on the page's nav gear, message list, and input — all still interactive and visible underneath the open modal. **Confirmed by `tests/accessibility.spec.js`: focus leaves the dialog after 1 Tab press.**
 - There's no explicit close control and no `Escape`-to-close handler — a keyboard user's only way out is tabbing to Save or Clear (functionally reachable, but non-obvious and non-standard for a dialog).
 
 **Fix:** give the modal `role="dialog"`, `aria-modal="true"`, `aria-labelledby` on the title; move initial focus into it on open and restore focus to the gear button on close; trap Tab within it (or mark the rest of the tree `inert`) while open; add an `Escape` key handler.
@@ -122,11 +136,16 @@ The whole UI is unstructured `div`s: no `<header>`/`<nav>`/`<main>` and no ARIA 
 
 ## Not yet verified
 
-This was a static/manual review, not a live audit. Before treating this as complete:
+The original static/manual review left several things unconfirmed; `tests/accessibility.spec.js` now closes most of them:
 
-- Run an automated pass (axe-core / Lighthouse) against `npm run dev` to catch anything a static read misses.
-- Drive the app with a real screen reader (VoiceOver/NVDA) through: opening Settings, saving a key, sending a message, receiving a reply, copying a response.
-- Verify keyboard-only operation end-to-end, including whether Tab currently escapes the open Settings modal into the page behind it (predicted in finding #4, not yet confirmed in a browser).
+- ~~Run an automated pass (axe-core / Lighthouse)~~ — done, see "Automated checks" above.
+- ~~Verify keyboard-only operation, including whether Tab escapes the open Settings modal~~ — done; confirmed it does, after 1 Tab press.
+- ~~Verify reflow at 400% zoom / narrow desktop windows (WCAG 1.4.10)~~ — done; passes at a 320px-equivalent viewport.
+- ~~Check rendering under Windows High Contrast / `forced-colors` mode~~ — done as a smoke check (key affordances keep a non-zero bounding box); the suite also attaches a screenshot for manual review, since a screenshot is a better judge of what forced-colors actually looks like than any single assertion.
+
+Still open — these need a human, not a browser automation tool:
+
+- Drive the app with a real screen reader (VoiceOver/NVDA) through: opening Settings, saving a key, sending a message, receiving a reply, copying a response. Axe-core and Playwright's accessible-name queries are a strong proxy but don't verify what's actually announced.
 
 ## Suggested fix order
 
