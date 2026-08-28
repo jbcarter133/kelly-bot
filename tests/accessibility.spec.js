@@ -112,6 +112,39 @@ test.describe("keyboard focus (WCAG 2.4.7, 2.4.3)", () => {
   });
 });
 
+test.describe("status messages (WCAG 4.1.3)", () => {
+  test("message log is a live region", async ({ page }) => {
+    await page.goto("/");
+    const log = page.getByRole("log");
+    await expect(log).toBeVisible();
+    await expect(log).toHaveAttribute("aria-live", "polite");
+  });
+
+  test("typing indicator has a text alternative while a reply is in flight", async ({ page }) => {
+    // No real key needed: stub the Anthropic call so the app's own loading
+    // state (and its live-region announcement) can be exercised end to end.
+    await page.addInitScript(() => localStorage.setItem("kellybot.key.anthropic", "sk-ant-test-key"));
+    await page.route("**/v1/messages", async (route) => {
+      await new Promise((r) => setTimeout(r, 300));
+      await route.fulfill({
+        json: { content: [{ type: "text", text: "Test reply from Kelly." }] },
+      });
+    });
+    await page.goto("/");
+
+    await page.getByRole("textbox", { name: /message/i }).fill("Hello");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    // While the request is in flight, the sr-only "Kelly is typing…" text
+    // should be present inside the live region (visually hidden, not
+    // display:none, so it's still queryable).
+    await expect(page.getByText("Kelly is typing…")).toBeAttached();
+
+    // And once the reply lands, it should be inside the same log region.
+    await expect(page.getByRole("log").getByText("Test reply from Kelly.")).toBeVisible();
+  });
+});
+
 test.describe("form field labels (WCAG 1.3.1, 3.3.2, 4.1.2)", () => {
   test("Settings fields expose an accessible name", async ({ page }) => {
     await page.goto("/");

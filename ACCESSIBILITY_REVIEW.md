@@ -8,12 +8,13 @@
 
 `tests/accessibility.spec.js` (run with `npm run test:a11y`) is an executable companion to this document — one test per finding below where automation can meaningfully check it: an axe-core scan of both the empty state and the open Settings dialog, a WCAG 1.4.4/1.4.10 zoom/reflow check, a forced-colors (Windows High Contrast) smoke check, keyboard-focus-visibility and Tab-order checks, and accessible-name checks on the form fields. No Anthropic key is needed — every check runs against static UI structure that renders before any API call.
 
-As of this pass: **11 passing / 0 failing**. Findings 1, 2, 3, 4, and 6 are all now regression-locked by passing tests:
+As of this pass: **13 passing / 0 failing**. Findings 1, 2, 3, 4, 5, and 6 are all now regression-locked by passing tests:
 - Findings 1 and 2 (viewport zoom lock, missing focus indicators) are locked by passing tests.
 - Finding 3 (`C.faint` contrast) and finding 6 (missing accessible names) are both fixed — the axe-core scan, which previously flagged `color-contrast` and `select-name`/label violations on both views, now comes back clean of critical/serious findings on both.
 - Finding 4 (modal dialog semantics/focus trap) is fixed — Tab no longer escapes the dialog, `role="dialog"`/`aria-modal`/`aria-labelledby` are present, initial focus moves into the dialog on open, and Escape closes it and returns focus to the trigger button. Three tests cover this now: the original Tab-order test plus two added for this fix.
+- Finding 5 (no live region on new messages) is fixed — two tests cover it, one structural (the log region carries `aria-live="polite"`) and one end-to-end: a mocked `/v1/messages` response is used to actually exercise the send flow (no real key needed) and confirm the typing indicator's text alternative is present while the request is in flight, and the reply lands inside the live region once it resolves.
 
-Still open: finding 5 (message live region) and the "Minor / notes" items 7–10.
+Still open: the "Minor / notes" items 7–10.
 
 When you fix a finding, its test should go green; keep this doc and the suite in sync in the same change.
 
@@ -78,12 +79,14 @@ The modal is a plain `div` with a click-outside-to-close handler; it has no `rol
 
 **Fix:** give the modal `role="dialog"`, `aria-modal="true"`, `aria-labelledby` on the title; move initial focus into it on open and restore focus to the gear button on close; trap Tab within it (or mark the rest of the tree `inert`) while open; add an `Escape` key handler.
 
-### 5. New chat messages are not announced to assistive tech
+### 5. New chat messages are not announced to assistive tech — FIXED
 **WCAG 4.1.3 Status Messages (AA)** — `src/KellyBot.jsx:639-664`
 
 The message list (`S.msgList`) has no `aria-live` region and no `role="log"`. When Kelly's reply streams in, or the typing indicator (`TypingDots`, line 156) appears/disappears, a screen reader user gets no notification unless they happen to have focus inside the list. In a chat UI this is the core interaction loop, so it's a significant gap, not a nice-to-have.
 
 **Fix:** wrap the message list in `aria-live="polite" aria-atomic="false"` (or `role="log"`, which implies it), and give the typing indicator a visually-hidden text alternative ("Kelly is typing…") so it participates in the same live region.
+
+**Applied:** the message list now carries `role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions"`. `TypingDots` gained a visually-hidden "Kelly is typing…" `<span>` (sr-only pattern, `src/KellyBot.jsx`) alongside the (now `aria-hidden`) animated dots, so it announces through the same region as messages. Verified end-to-end with a mocked `/v1/messages` response rather than just checking the attribute is present — see `tests/accessibility.spec.js`.
 
 ### 6. Form fields have no programmatic label, only placeholder text — FIXED
 **WCAG 1.3.1 Info and Relationships (A), 3.3.2 Labels or Instructions (A), 4.1.2 Name, Role, Value (A)** — `src/KellyBot.jsx:542-573, 698-708`
@@ -160,6 +163,7 @@ Still open — these need a human, not a browser automation tool:
 2. ~~Finding 3 (`C.faint` contrast) — a palette change; touches many call sites but is mechanical.~~ **Done.**
 3. ~~Finding 6 (form labels) — localized, no visual change.~~ **Done.**
 4. ~~Finding 4 (modal semantics/focus trap) — dialog role, focus management, Tab trap, Escape.~~ **Done.**
-5. Finding 5 (message live region) and findings 7–10 as follow-up cleanup.
+5. ~~Finding 5 (message live region) — `role="log"`, typing-indicator text alternative.~~ **Done.**
+6. Findings 7–10 as follow-up cleanup.
 
-Findings 1, 2, 3, 4, and 6 have been applied (see notes above) — `npm run test:a11y` is fully green (11/11). Finding 5 and the "Minor / notes" items are still open. Happy to implement any of the remaining items on request.
+Findings 1–6 have all been applied (see notes above) — `npm run test:a11y` is fully green (13/13). Only the "Minor / notes" items (7–10: no heading structure, unannounced copy-button state, a couple of undersized tap targets, no landmark regions) are still open. Happy to implement any of them on request.

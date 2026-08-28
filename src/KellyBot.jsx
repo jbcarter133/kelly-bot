@@ -155,15 +155,24 @@ const C = {
   okBg: "#dcfce7",
 };
 
+// Visually hidden but readable by assistive tech — standard sr-only pattern.
+const srOnly = {
+  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+  overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
+};
+
 function TypingDots() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px" }}>
-      {[0, 1, 2].map(i => (
-        <span key={i} style={{
-          width: 6, height: 6, borderRadius: "50%", background: C.accent, display: "block",
-          animation: `kbounce 1.2s ease-in-out ${i * 0.2}s infinite`, opacity: 0.3,
-        }} />
-      ))}
+      <span style={srOnly}>Kelly is typing…</span>
+      <div aria-hidden="true" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            width: 6, height: 6, borderRadius: "50%", background: C.accent, display: "block",
+            animation: `kbounce 1.2s ease-in-out ${i * 0.2}s infinite`, opacity: 0.3,
+          }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -681,7 +690,7 @@ export default function KellyBot() {
         </div>
 
         {/* Messages */}
-        <div style={S.msgList}>
+        <div style={S.msgList} role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions">
           {isEmpty && (
             <div style={S.emptyWrap}>
               <div>
