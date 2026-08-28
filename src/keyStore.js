@@ -7,6 +7,7 @@ import { PROVIDER_IDS } from "./providers.js";
 
 const keyName = (provider) => `kellybot.key.${provider}`;
 const modelName = (provider) => `kellybot.model.${provider}`;
+const workspaceIdName = (provider) => `kellybot.workspaceId.${provider}`;
 const PROVIDER_KEY = "kellybot.provider";
 const MODE_KEY = "kellybot.keymode";
 
@@ -65,4 +66,17 @@ export function setModel(provider, model) {
   const trimmed = (model || "").trim();
   if (trimmed) localStorage.setItem(modelName(provider), trimmed);
   else localStorage.removeItem(modelName(provider));
+}
+
+// Per-provider workspace ID (preference, not a secret) — required by some
+// Anthropic keys that are linked to a person's identity across multiple
+// workspaces rather than scoped to one; sent as anthropic-workspace-id.
+export function getWorkspaceId(provider) {
+  return localStorage.getItem(workspaceIdName(provider)) ?? "";
+}
+
+export function setWorkspaceId(provider, workspaceId) {
+  const trimmed = (workspaceId || "").trim();
+  if (trimmed) localStorage.setItem(workspaceIdName(provider), trimmed);
+  else localStorage.removeItem(workspaceIdName(provider));
 }
