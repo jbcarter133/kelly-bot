@@ -21,7 +21,7 @@ const WEB_ADDENDUM =
   "\n\n---\n\nWEB ACCESS: The user has supplied a link in their message. You may use the web_search tool ONLY to look up the page(s) at the URL(s) they provided and answer questions about that content. Do not browse beyond what is needed to address the supplied link. If no link were present you would have no web access at all.";
 
 // Anthropic (Claude) — content blocks, top-level system, gated web search.
-async function anthropicChat({ apiKey, model, system, messages, webEnabled, signal }) {
+async function anthropicChat({ apiKey, model, system, messages, webEnabled, workspaceId, signal }) {
   const body = {
     model,
     max_tokens: MAX_TOKENS,
@@ -37,6 +37,7 @@ async function anthropicChat({ apiKey, model, system, messages, webEnabled, sign
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
+      ...(workspaceId ? { "anthropic-workspace-id": workspaceId } : {}),
     },
     body: JSON.stringify(body),
     signal,
@@ -104,12 +105,13 @@ async function groqChat({ apiKey, model, system, messages, signal }) {
 
 // List the model IDs the given key can access, for the Settings dropdown.
 // Both endpoints are on the same hosts as chat, so no extra CSP entries needed.
-async function anthropicListModels(apiKey) {
+async function anthropicListModels(apiKey, workspaceId) {
   const res = await fetch("https://api.anthropic.com/v1/models?limit=1000", {
     headers: {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
+      ...(workspaceId ? { "anthropic-workspace-id": workspaceId } : {}),
     },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { getKey, setKey, clearKey, getStorageMode, setStorageMode, getProvider, setProvider, getModel, setModel } from "./keyStore.js";
+import { getKey, setKey, clearKey, getStorageMode, setStorageMode, getProvider, setProvider, getModel, setModel, getWorkspaceId, setWorkspaceId } from "./keyStore.js";
 import { PROVIDERS, PROVIDER_IDS } from "./providers.js";
 
 const KELLY_SYSTEM = `You are a Claude instance configured to think and speak in the style, structure, and cognitive habits of Kelly. You do not imitate a biography; you imitate a mindset. You remain an AI, but your reasoning, structure, and expressive modes follow Kelly's characteristic "isms."
@@ -334,22 +334,25 @@ export default function KellyBot() {
   const [providerId, setProviderId] = useState(() => getProvider());
   const [apiKey, setApiKey] = useState(() => getKey(getProvider()));
   const [model, setModelState] = useState(() => getModel(getProvider()));
+  const [workspaceId, setWorkspaceIdState] = useState(() => getWorkspaceId(getProvider()));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [modelInput, setModelInput] = useState("");
+  const [workspaceIdInput, setWorkspaceIdInput] = useState("");
   const [modelList, setModelList] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState("");
   const [storageMode, setStorageModeState] = useState(() => getStorageMode());
 
   // Fetch the model IDs this provider's key can access, to fill the dropdown.
-  async function loadModels(id = providerId, key) {
+  async function loadModels(id = providerId, key, workspaceIdArg) {
     const k = ((key ?? keyInput) || "").trim() || getKey(id);
     if (!k) { setModelList([]); return; }
     setModelsError("");
     setModelsLoading(true);
     try {
-      setModelList(await PROVIDERS[id].listModels(k));
+      const wsId = ((workspaceIdArg ?? workspaceIdInput) || "").trim() || getWorkspaceId(id);
+      setModelList(await PROVIDERS[id].listModels(k, wsId));
     } catch {
       setModelList([]);
       setModelsError("Couldn't load models — check the key.");
@@ -364,20 +367,23 @@ export default function KellyBot() {
     setProviderId(id);
     setApiKey(getKey(id));
     setModelState(getModel(id));
+    setWorkspaceIdState(getWorkspaceId(id));
     setKeyInput(getKey(id));
     setModelInput(getModel(id));
+    setWorkspaceIdInput(getWorkspaceId(id));
     setModelList([]);
     setModelsError("");
-    loadModels(id, getKey(id));
+    loadModels(id, getKey(id), getWorkspaceId(id));
   }
 
   function openSettings() {
     setKeyInput(getKey(providerId));
     setModelInput(getModel(providerId));
+    setWorkspaceIdInput(getWorkspaceId(providerId));
     setStorageModeState(getStorageMode());
     setModelsError("");
     setSettingsOpen(true);
-    loadModels(providerId, getKey(providerId));
+    loadModels(providerId, getKey(providerId), getWorkspaceId(providerId));
   }
 
   useEffect(() => {
@@ -472,6 +478,7 @@ export default function KellyBot() {
         system: KELLY_SYSTEM,
         messages: apiMessages,
         webEnabled,
+        workspaceId,
       });
       setMessages(prev => [...prev, { role: "assistant", content: error ? `⚠︎ ${error}` : reply }]);
     } catch {
@@ -578,6 +585,20 @@ export default function KellyBot() {
                 >{modelsLoading ? "…" : "↻"}</button>
               </div>
               {modelsError && <p style={{ fontSize: 10, color: C.accent, marginBottom: 12 }}>{modelsError}</p>}
+              {providerId === "anthropic" && (
+                <>
+                  <input
+                    type="text"
+                    value={workspaceIdInput}
+                    onChange={e => setWorkspaceIdInput(e.target.value)}
+                    placeholder="Workspace ID (only for identity-linked keys)"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 4 }}
+                  />
+                  <p style={{ fontSize: 10, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
+                    Only needed if your key errors with "anthropic-workspace-id is required" — leave blank otherwise.
+                  </p>
+                </>
+              )}
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.inkSoft, marginBottom: 16, cursor: "pointer" }}>
                 <input type="checkbox" checked={storageMode === "session"}
                   onChange={e => setStorageModeState(e.target.checked ? "session" : "local")} />
@@ -590,8 +611,10 @@ export default function KellyBot() {
                     setProvider(providerId);
                     setKey(providerId, keyInput);
                     setModel(providerId, modelInput);
+                    setWorkspaceId(providerId, workspaceIdInput);
                     setApiKey(keyInput.trim());
                     setModelState(modelInput.trim());
+                    setWorkspaceIdState(workspaceIdInput.trim());
                     setSettingsOpen(false);
                   }}
                   style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: C.accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
