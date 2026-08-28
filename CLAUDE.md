@@ -33,9 +33,17 @@ npm run dev      # fully functional on its own — paste a key via the gear (Set
 
 ## Verify
 
-There is **no test suite** and no lint config. Proof of a change:
+There is no lint config, and no test suite beyond accessibility. Proof of a change:
 
 - `npm run build` must succeed (this is the deploy/CI check, no key needed).
+- `npm run test:a11y` runs the Playwright + axe-core accessibility suite
+  (`tests/accessibility.spec.js`, config in `playwright.config.js`). No
+  Anthropic key needed — it only exercises static UI structure (labels,
+  focus, contrast, dialog semantics, zoom/reflow) that renders before any API
+  call. It is **not** a general test suite — it doesn't touch chat/provider
+  logic — and some of its tests are expected to fail until the matching
+  finding in `ACCESSIBILITY_REVIEW.md` is fixed; that's intentional, see that
+  doc's "Automated checks" section.
 - The full request/response path needs a **real Anthropic key** pasted in
   Settings. Without a key the app just opens Settings and sends nothing — so
   you cannot verify generation end-to-end without one; say so rather than

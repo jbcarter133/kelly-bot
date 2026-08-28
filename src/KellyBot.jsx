@@ -143,7 +143,9 @@ const C = {
   panelSoft: "#f0ece4",
   ink: "#1c1917",
   inkSoft: "#57534e",
-  faint: "#a8a29e",
+  // WCAG 1.4.3: was #a8a29e (~2.3:1 on `bg`, ~2.5:1 on `panel` — fails AA).
+  // This clears 4.5:1 on both (~5.3:1 on bg, ~5.7:1 on panel).
+  faint: "#6b6560",
   line: "#e2ddd3",
   accent: "#c2410c",
   accentSoft: "#fde8d7",
@@ -153,15 +155,24 @@ const C = {
   okBg: "#dcfce7",
 };
 
+// Visually hidden but readable by assistive tech — standard sr-only pattern.
+const srOnly = {
+  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+  overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
+};
+
 function TypingDots() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "12px 16px" }}>
-      {[0, 1, 2].map(i => (
-        <span key={i} style={{
-          width: 6, height: 6, borderRadius: "50%", background: C.accent, display: "block",
-          animation: `kbounce 1.2s ease-in-out ${i * 0.2}s infinite`, opacity: 0.3,
-        }} />
-      ))}
+      <span style={srOnly}>Kelly is typing…</span>
+      <div aria-hidden="true" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        {[0, 1, 2].map(i => (
+          <span key={i} style={{
+            width: 6, height: 6, borderRadius: "50%", background: C.accent, display: "block",
+            animation: `kbounce 1.2s ease-in-out ${i * 0.2}s infinite`, opacity: 0.3,
+          }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -235,6 +246,7 @@ function CopyButton({ content }) {
           </svg>copy
         </>
       )}
+      <span role="status" aria-live="polite" style={srOnly}>{copied ? "Copied to clipboard" : ""}</span>
     </button>
   );
 }
@@ -334,6 +346,8 @@ export default function KellyBot() {
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const settingsPanelRef = useRef(null);
+  const settingsReturnFocusRef = useRef(null);
 
   // BYOK: the user's Anthropic key, held only in this browser (see keyStore.js).
   const [apiKey, setApiKey] = useState(() => getKey(provider.id));
@@ -366,6 +380,7 @@ export default function KellyBot() {
   }
 
   function openSettings() {
+    settingsReturnFocusRef.current = document.activeElement;
     setKeyInput(getKey(provider.id));
     setModelInput(getModel(provider.id));
     setWorkspaceIdInput(getWorkspaceId(provider.id));
@@ -373,6 +388,41 @@ export default function KellyBot() {
     setModelsError("");
     setSettingsOpen(true);
     loadModels(getKey(provider.id), getWorkspaceId(provider.id));
+  }
+
+  // Focus containment for the Settings dialog (WCAG 2.4.3 / 4.1.2): move
+  // focus in on open, return it to whatever opened the dialog on close.
+  useEffect(() => {
+    if (settingsOpen) {
+      settingsPanelRef.current?.querySelector("input, select, textarea, button")?.focus();
+    } else {
+      settingsReturnFocusRef.current?.focus?.();
+      settingsReturnFocusRef.current = null;
+    }
+  }, [settingsOpen]);
+
+  // Escape closes the dialog; Tab/Shift+Tab cycles within it instead of
+  // escaping into the page underneath.
+  function handleSettingsKeyDown(e) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      setSettingsOpen(false);
+      return;
+    }
+    if (e.key !== "Tab" || !settingsPanelRef.current) return;
+    const focusable = Array.from(
+      settingsPanelRef.current.querySelectorAll("input, select, textarea, button")
+    ).filter(el => !el.disabled);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   }
 
   useEffect(() => {
@@ -498,7 +548,7 @@ export default function KellyBot() {
     inputRow: { display: "flex", alignItems: "flex-end", gap: 8 },
     iconBtn: { position: "relative", width: 44, height: 44, borderRadius: "50%", border: `1px solid ${C.line}`, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all 0.15s" },
     inputWrap: { flex: 1, display: "flex", alignItems: "flex-end", background: C.bg, borderRadius: 22, border: `1.5px solid ${C.line}`, padding: "10px 14px", minHeight: 44 },
-    textarea: { width: "100%", background: "transparent", color: C.ink, fontSize: 13, lineHeight: 1.6, border: "none", outline: "none", resize: "none", fontFamily: "'DM Mono', monospace", minHeight: 22, maxHeight: 120 },
+    textarea: { width: "100%", background: "transparent", color: C.ink, fontSize: 13, lineHeight: 1.6, border: "none", resize: "none", fontFamily: "'DM Mono', monospace", minHeight: 22, maxHeight: 120 },
     sendBtn: (a) => ({ width: 44, height: 44, borderRadius: "50%", border: "none", background: a ? C.accent : C.panelSoft, display: "flex", alignItems: "center", justifyContent: "center", cursor: a ? "pointer" : "not-allowed", flexShrink: 0, opacity: a ? 1 : 0.5, transition: "all 0.15s" }),
     hint: { textAlign: "center", fontSize: 10, color: C.faint, marginTop: 6, letterSpacing: "0.08em" },
     pendingRow: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 },
@@ -531,9 +581,11 @@ export default function KellyBot() {
         {settingsOpen && (
           <div onClick={() => setSettingsOpen(false)}
             style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div onClick={e => e.stopPropagation()}
+            <div onClick={e => e.stopPropagation()} onKeyDown={handleSettingsKeyDown}
+              ref={settingsPanelRef} data-testid="settings-dialog"
+              role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title"
               style={{ width: "100%", maxWidth: 380, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, fontFamily: "'DM Mono', monospace" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>{provider.label} API key</div>
+              <div id="settings-dialog-title" style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>{provider.label} API key</div>
 
               <p style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
                 Stored only in this browser, sent only to Anthropic. Key: {provider.keyHint}
@@ -541,16 +593,18 @@ export default function KellyBot() {
 
               <input
                 type="password"
+                aria-label={`${provider.label} API key`}
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
                 placeholder={provider.keyHint}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 10 }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", marginBottom: 10 }}
               />
               <div style={{ display: "flex", gap: 6, marginBottom: modelsError ? 4 : 12 }}>
                 <select
+                  aria-label="Model"
                   value={modelInput}
                   onChange={e => setModelInput(e.target.value)}
-                  style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none" }}
+                  style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace" }}
                 >
                   <option value="">Default — {provider.defaultModel}</option>
                   {modelInput && !modelList.includes(modelInput) && <option value={modelInput}>{modelInput}</option>}
@@ -560,16 +614,17 @@ export default function KellyBot() {
                   type="button"
                   onClick={() => loadModels()}
                   aria-label="Load models" title="Load models available to this key"
-                  style={{ flexShrink: 0, padding: "0 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                  style={{ flexShrink: 0, minWidth: 44, minHeight: 44, padding: "0 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.bg, color: C.faint, fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
                 >{modelsLoading ? "…" : "↻"}</button>
               </div>
               {modelsError && <p style={{ fontSize: 10, color: C.accent, marginBottom: 12 }}>{modelsError}</p>}
               <input
                 type="text"
+                aria-label="Workspace ID"
                 value={workspaceIdInput}
                 onChange={e => setWorkspaceIdInput(e.target.value)}
                 placeholder="Workspace ID (only for identity-linked keys)"
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 4 }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", marginBottom: 4 }}
               />
               <p style={{ fontSize: 10, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
                 Only needed if your key errors with "anthropic-workspace-id is required" — leave blank otherwise.
@@ -603,10 +658,10 @@ export default function KellyBot() {
         )}
 
         {/* Nav */}
-        <div style={S.navbar}>
+        <header style={S.navbar}>
           <div style={S.navRow}>
             <div style={S.navIcon}><span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 800, fontFamily: "'Syne', sans-serif" }}>K</span></div>
-            <span style={S.navTitle}>Kelly</span>
+            <h1 style={{ ...S.navTitle, margin: 0 }}>Kelly</h1>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e", display: "block" }} />
               <span style={{ fontSize: 10, color: C.faint, letterSpacing: "0.12em", textTransform: "uppercase" }}>Active</span>
@@ -633,15 +688,16 @@ export default function KellyBot() {
               {model || provider.defaultModel}
             </button>
           </div>
-        </div>
+        </header>
 
         {/* Messages */}
-        <div style={S.msgList}>
+        <main style={{ display: "contents" }}>
+          <div style={S.msgList} role="log" aria-live="polite" aria-atomic="false" aria-relevant="additions">
           {isEmpty && (
             <div style={S.emptyWrap}>
               <div>
                 <div style={{ fontSize: 36, color: C.line, marginBottom: 12 }}>◈</div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: C.faint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>Kelly is listening</p>
+                <h2 style={{ fontSize: 11, fontWeight: 700, color: C.faint, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "'Syne', sans-serif", margin: 0, marginBottom: 4 }}>Kelly is listening</h2>
                 <p style={{ fontSize: 12, color: C.faint, fontStyle: "italic" }}>Bring a system, a pattern, or a file.</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 300 }}>
@@ -662,9 +718,10 @@ export default function KellyBot() {
           )}
           <div ref={bottomRef} />
         </div>
+        </main>
 
         {/* Input */}
-        <div style={S.toolbar}>
+        <div style={S.toolbar} role="form" aria-label="Send a message">
           {/* Staged attachments */}
           {pending.length > 0 && (
             <div style={S.pendingRow}>
@@ -676,7 +733,7 @@ export default function KellyBot() {
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5l3 3V14a.5.5 0 01-.5.5H4a.5.5 0 01-.5-.5V2a.5.5 0 01.5-.5z" stroke={C.accent} strokeWidth="1.3" /><path d="M9 1.5V4.5H12" stroke={C.accent} strokeWidth="1.3" /></svg>
                   )}
                   <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p._name}</span>
-                  <button onClick={() => removePending(i)} aria-label="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: C.accent, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  <button onClick={() => removePending(i)} aria-label="Remove" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: C.accent, fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
                 </div>
               ))}
             </div>
@@ -697,6 +754,7 @@ export default function KellyBot() {
             <div style={S.inputWrap}>
               <textarea
                 ref={textareaRef}
+                aria-label="Message"
                 value={input}
                 onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
                 onKeyDown={handleKey}
