@@ -498,7 +498,7 @@ export default function KellyBot() {
     inputRow: { display: "flex", alignItems: "flex-end", gap: 8 },
     iconBtn: { position: "relative", width: 44, height: 44, borderRadius: "50%", border: `1px solid ${C.line}`, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all 0.15s" },
     inputWrap: { flex: 1, display: "flex", alignItems: "flex-end", background: C.bg, borderRadius: 22, border: `1.5px solid ${C.line}`, padding: "10px 14px", minHeight: 44 },
-    textarea: { width: "100%", background: "transparent", color: C.ink, fontSize: 13, lineHeight: 1.6, border: "none", outline: "none", resize: "none", fontFamily: "'DM Mono', monospace", minHeight: 22, maxHeight: 120 },
+    textarea: { width: "100%", background: "transparent", color: C.ink, fontSize: 13, lineHeight: 1.6, border: "none", resize: "none", fontFamily: "'DM Mono', monospace", minHeight: 22, maxHeight: 120 },
     sendBtn: (a) => ({ width: 44, height: 44, borderRadius: "50%", border: "none", background: a ? C.accent : C.panelSoft, display: "flex", alignItems: "center", justifyContent: "center", cursor: a ? "pointer" : "not-allowed", flexShrink: 0, opacity: a ? 1 : 0.5, transition: "all 0.15s" }),
     hint: { textAlign: "center", fontSize: 10, color: C.faint, marginTop: 6, letterSpacing: "0.08em" },
     pendingRow: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 },
@@ -544,13 +544,13 @@ export default function KellyBot() {
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
                 placeholder={provider.keyHint}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 10 }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", marginBottom: 10 }}
               />
               <div style={{ display: "flex", gap: 6, marginBottom: modelsError ? 4 : 12 }}>
                 <select
                   value={modelInput}
                   onChange={e => setModelInput(e.target.value)}
-                  style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none" }}
+                  style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace" }}
                 >
                   <option value="">Default — {provider.defaultModel}</option>
                   {modelInput && !modelList.includes(modelInput) && <option value={modelInput}>{modelInput}</option>}
@@ -569,7 +569,7 @@ export default function KellyBot() {
                 value={workspaceIdInput}
                 onChange={e => setWorkspaceIdInput(e.target.value)}
                 placeholder="Workspace ID (only for identity-linked keys)"
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", outline: "none", marginBottom: 4 }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace", marginBottom: 4 }}
               />
               <p style={{ fontSize: 10, color: C.faint, lineHeight: 1.5, marginBottom: 12 }}>
                 Only needed if your key errors with "anthropic-workspace-id is required" — leave blank otherwise.

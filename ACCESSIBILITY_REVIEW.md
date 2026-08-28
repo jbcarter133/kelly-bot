@@ -10,7 +10,7 @@ Findings are ordered by severity. Each cites the WCAG success criterion, level, 
 
 ## Critical
 
-### 1. Pinch-zoom and text resize are disabled site-wide
+### 1. Pinch-zoom and text resize are disabled site-wide — FIXED
 **WCAG 1.4.4 Resize Text (AA), 1.4.10 Reflow (AA)** — `index.html:5`
 
 ```html
@@ -21,12 +21,16 @@ Findings are ordered by severity. Each cites the WCAG success criterion, level, 
 
 **Fix:** drop `maximum-scale=1.0, user-scalable=no`, i.e. `content="width=device-width, initial-scale=1.0"`.
 
-### 2. Focus indicator is removed on every form control, with no replacement
+**Applied:** `maximum-scale`/`user-scalable` removed from the viewport meta tag.
+
+### 2. Focus indicator is removed on every form control, with no replacement — FIXED
 **WCAG 2.4.7 Focus Visible (AA)** — `src/KellyBot.jsx:501,547,553,572`
 
 All four interactive form fields — the message `textarea`, the API-key `input`, the model `select`, and the workspace-ID `input` — set `outline: "none"` inline with nothing standing in for it (no focus border/box-shadow change). Keyboard users tabbing through the app (and Settings modal) get no visual indication of where focus is on any of these controls.
 
 **Fix:** either drop `outline: "none"` and let the native ring show, or add an explicit `:focus`/`:focus-visible` style (e.g. a stylesheet rule, since these are inline styles and can't express pseudo-classes) with a visible ring that meets 1.4.11's 3:1 contrast against the adjacent colors.
+
+**Applied:** `outline: "none"` removed from all four controls; each now shows the browser's native focus ring.
 
 ---
 
@@ -126,10 +130,10 @@ This was a static/manual review, not a live audit. Before treating this as compl
 
 ## Suggested fix order
 
-1. Findings 1 and 2 (viewport zoom lock, missing focus indicators) — one-line/small fixes, high impact, no design risk.
+1. ~~Findings 1 and 2 (viewport zoom lock, missing focus indicators) — one-line/small fixes, high impact, no design risk.~~ **Done.**
 2. Finding 3 (`C.faint` contrast) — a palette change; touches many call sites but is mechanical.
 3. Findings 5 and 6 (live region, form labels) — localized, no visual change.
 4. Finding 4 (modal semantics/focus trap) — most involved; needs the dialog role, focus management, and either a trap or `inert` on the background.
 5. Findings 7–10 as follow-up cleanup.
 
-I did not make any code changes for this pass — this document is the review. Happy to implement any or all of the above on request.
+Findings 1 and 2 have been applied (see notes above); the rest are still open. Happy to implement any of the remaining items on request.
