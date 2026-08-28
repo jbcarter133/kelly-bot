@@ -8,11 +8,10 @@
 
 `tests/accessibility.spec.js` (run with `npm run test:a11y`) is an executable companion to this document — one test per finding below where automation can meaningfully check it: an axe-core scan of both the empty state and the open Settings dialog, a WCAG 1.4.4/1.4.10 zoom/reflow check, a forced-colors (Windows High Contrast) smoke check, keyboard-focus-visibility and Tab-order checks, and accessible-name checks on the form fields. No Anthropic key is needed — every check runs against static UI structure that renders before any API call.
 
-As of this pass: **4 passing / 5 failing**, and the failures are expected — they *are* the still-open findings below, made executable instead of predicted from a static read:
-- Findings 1 and 2 (viewport zoom lock, missing focus indicators) are now regression-locked by passing tests.
-- The axe-core scan independently confirms finding 3 (`color-contrast` violations) and finding 6 (`select-name`/label violations) on both views.
-- The Tab-order test confirms finding 4 for real: focus escapes the open Settings dialog into the page behind it after just **one** Tab press (previously only predicted from reading the code, not observed).
-- The accessible-name tests confirm the model `<select>` and message `<textarea>` have no discoverable name (finding 6).
+As of this pass: **8 passing / 1 failing**. The one failure is finding 4 (still open) — the rest are now regression-locked by passing tests:
+- Findings 1 and 2 (viewport zoom lock, missing focus indicators) are locked by passing tests.
+- Finding 3 (`C.faint` contrast) and finding 6 (missing accessible names) are both fixed — the axe-core scan, which previously flagged `color-contrast` and `select-name`/label violations on both views, now comes back clean of critical/serious findings on both.
+- The Tab-order test still confirms finding 4: focus escapes the open Settings dialog into the page behind it after just **one** Tab press.
 
 When you fix a finding, its test should go green; keep this doc and the suite in sync in the same change.
 
@@ -50,7 +49,7 @@ All four interactive form fields — the message `textarea`, the API-key `input`
 
 ## Serious
 
-### 3. `C.faint` fails text and non-text contrast almost everywhere it's used
+### 3. `C.faint` fails text and non-text contrast almost everywhere it's used — FIXED
 **WCAG 1.4.3 Contrast (Minimum) (AA), 1.4.11 Non-text Contrast (AA)** — palette at `src/KellyBot.jsx:140-154`; used at lines 291, 311, 493, 503, 626 (chip labels), 617 (settings-gear icon at rest), 538/574 (help text in Settings), etc.
 
 `C.faint = #a8a29e` against `C.bg = #f7f5f0` computes to **~2.3:1**; against `C.panel = #ffffff` it's **~2.5:1**. Both are well under the 4.5:1 required for normal text (and under the 3:1 floor for large text or graphical/UI-component contrast). This color is the *de facto* secondary-text and icon color throughout the app:
@@ -61,6 +60,8 @@ All four interactive form fields — the message `textarea`, the API-key `input`
 - The settings-gear icon stroke when a key is already saved, and the "↻ load models" icon (line 617, 563) — these are graphical UI components, so 1.4.11's 3:1 floor applies and is also missed
 
 **Fix:** darken `faint` (e.g. something in the `#78716c`–`#6b6660` range gets you to ~4.5:1 on `#f7f5f0`) or stop using it for anything that conveys text/icon meaning; reserve a low-contrast tone strictly for non-essential decoration.
+
+**Applied:** `faint` changed to `#6b6560` — ~5.3:1 on `bg`, ~5.7:1 on `panel`. All 12 call sites use the shared token, so this was a single edit at the palette definition (`src/KellyBot.jsx:146`).
 
 ### 4. Settings modal is not a real dialog — no focus containment, no accessible name/role — CONFIRMED
 **WCAG 2.4.3 Focus Order (A), 4.1.2 Name, Role, Value (A)** — `src/KellyBot.jsx:531-603`
@@ -80,7 +81,7 @@ The message list (`S.msgList`) has no `aria-live` region and no `role="log"`. Wh
 
 **Fix:** wrap the message list in `aria-live="polite" aria-atomic="false"` (or `role="log"`, which implies it), and give the typing indicator a visually-hidden text alternative ("Kelly is typing…") so it participates in the same live region.
 
-### 6. Form fields have no programmatic label, only placeholder text
+### 6. Form fields have no programmatic label, only placeholder text — FIXED
 **WCAG 1.3.1 Info and Relationships (A), 3.3.2 Labels or Instructions (A), 4.1.2 Name, Role, Value (A)** — `src/KellyBot.jsx:542-573, 698-708`
 
 - The API-key `<input type="password">` (line 542) has no `<label>`/`aria-label`/`aria-labelledby` — only a `placeholder` and a preceding, unassociated `<p>`. Its accessible name is empty.
@@ -89,6 +90,8 @@ The message list (`S.msgList`) has no `aria-live` region and no `role="log"`. Wh
 - The message `<textarea>` (line 698) relies solely on its placeholder ("Bring a system, problem, file, or pattern…"), which disappears once text is typed and isn't a reliable label for all AT/browser combinations.
 
 **Fix:** add `aria-label` (or a properly associated `<label for>`/`aria-labelledby`) to each — e.g. `aria-label="Anthropic API key"`, `aria-label="Model"`, `aria-label="Workspace ID"`, `aria-label="Message"`.
+
+**Applied:** exactly that — `aria-label` added to the API-key input (`` `${provider.label} API key` ``), the model select (`"Model"`), the workspace-ID input (`"Workspace ID"`), and the message textarea (`"Message"`). No visible-label redesign; placeholders are unchanged and still shown.
 
 ---
 
@@ -150,9 +153,9 @@ Still open — these need a human, not a browser automation tool:
 ## Suggested fix order
 
 1. ~~Findings 1 and 2 (viewport zoom lock, missing focus indicators) — one-line/small fixes, high impact, no design risk.~~ **Done.**
-2. Finding 3 (`C.faint` contrast) — a palette change; touches many call sites but is mechanical.
-3. Findings 5 and 6 (live region, form labels) — localized, no visual change.
-4. Finding 4 (modal semantics/focus trap) — most involved; needs the dialog role, focus management, and either a trap or `inert` on the background.
+2. ~~Finding 3 (`C.faint` contrast) — a palette change; touches many call sites but is mechanical.~~ **Done.**
+3. ~~Finding 6 (form labels) — localized, no visual change.~~ **Done.** Finding 5 (message live region) is the same category but not yet applied.
+4. Finding 4 (modal semantics/focus trap) — most involved; needs the dialog role, focus management, and either a trap or `inert` on the background. Currently the only failing test in `tests/accessibility.spec.js`.
 5. Findings 7–10 as follow-up cleanup.
 
-Findings 1 and 2 have been applied (see notes above); the rest are still open. Happy to implement any of the remaining items on request.
+Findings 1, 2, 3, and 6 have been applied (see notes above). Finding 4 is next up — its test is the one red check in `npm run test:a11y`. Findings 5, 7–10 are still open. Happy to implement any of the remaining items on request.

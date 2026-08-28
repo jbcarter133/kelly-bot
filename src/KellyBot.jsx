@@ -143,7 +143,9 @@ const C = {
   panelSoft: "#f0ece4",
   ink: "#1c1917",
   inkSoft: "#57534e",
-  faint: "#a8a29e",
+  // WCAG 1.4.3: was #a8a29e (~2.3:1 on `bg`, ~2.5:1 on `panel` — fails AA).
+  // This clears 4.5:1 on both (~5.3:1 on bg, ~5.7:1 on panel).
+  faint: "#6b6560",
   line: "#e2ddd3",
   accent: "#c2410c",
   accentSoft: "#fde8d7",
@@ -541,6 +543,7 @@ export default function KellyBot() {
 
               <input
                 type="password"
+                aria-label={`${provider.label} API key`}
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
                 placeholder={provider.keyHint}
@@ -548,6 +551,7 @@ export default function KellyBot() {
               />
               <div style={{ display: "flex", gap: 6, marginBottom: modelsError ? 4 : 12 }}>
                 <select
+                  aria-label="Model"
                   value={modelInput}
                   onChange={e => setModelInput(e.target.value)}
                   style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.bg, color: C.ink, fontSize: 12, fontFamily: "'DM Mono', monospace" }}
@@ -566,6 +570,7 @@ export default function KellyBot() {
               {modelsError && <p style={{ fontSize: 10, color: C.accent, marginBottom: 12 }}>{modelsError}</p>}
               <input
                 type="text"
+                aria-label="Workspace ID"
                 value={workspaceIdInput}
                 onChange={e => setWorkspaceIdInput(e.target.value)}
                 placeholder="Workspace ID (only for identity-linked keys)"
@@ -697,6 +702,7 @@ export default function KellyBot() {
             <div style={S.inputWrap}>
               <textarea
                 ref={textareaRef}
+                aria-label="Message"
                 value={input}
                 onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
                 onKeyDown={handleKey}
