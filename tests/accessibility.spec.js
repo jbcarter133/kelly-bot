@@ -89,6 +89,27 @@ test.describe("keyboard focus (WCAG 2.4.7, 2.4.3)", () => {
       expect(inside, `focus escaped the dialog after ${i + 1} Tab presses`).toBe(true);
     }
   });
+
+  test("Settings dialog has dialog semantics and moves focus in on open", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "API key settings" }).click();
+    const dialog = page.getByRole("dialog", { name: /API key/i });
+    await expect(dialog).toBeVisible();
+    // Initial focus should land inside the dialog, not stay on the trigger.
+    const inside = await dialog.evaluate((el) => el.contains(document.activeElement));
+    expect(inside).toBe(true);
+  });
+
+  test("Escape closes the Settings dialog and returns focus to the trigger", async ({ page }) => {
+    await page.goto("/");
+    const trigger = page.getByRole("button", { name: "API key settings" });
+    await trigger.click();
+    await expect(page.getByTestId("settings-dialog")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("settings-dialog")).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
 });
 
 test.describe("form field labels (WCAG 1.3.1, 3.3.2, 4.1.2)", () => {

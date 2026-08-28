@@ -336,6 +336,8 @@ export default function KellyBot() {
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const settingsPanelRef = useRef(null);
+  const settingsReturnFocusRef = useRef(null);
 
   // BYOK: the user's Anthropic key, held only in this browser (see keyStore.js).
   const [apiKey, setApiKey] = useState(() => getKey(provider.id));
@@ -368,6 +370,7 @@ export default function KellyBot() {
   }
 
   function openSettings() {
+    settingsReturnFocusRef.current = document.activeElement;
     setKeyInput(getKey(provider.id));
     setModelInput(getModel(provider.id));
     setWorkspaceIdInput(getWorkspaceId(provider.id));
@@ -375,6 +378,41 @@ export default function KellyBot() {
     setModelsError("");
     setSettingsOpen(true);
     loadModels(getKey(provider.id), getWorkspaceId(provider.id));
+  }
+
+  // Focus containment for the Settings dialog (WCAG 2.4.3 / 4.1.2): move
+  // focus in on open, return it to whatever opened the dialog on close.
+  useEffect(() => {
+    if (settingsOpen) {
+      settingsPanelRef.current?.querySelector("input, select, textarea, button")?.focus();
+    } else {
+      settingsReturnFocusRef.current?.focus?.();
+      settingsReturnFocusRef.current = null;
+    }
+  }, [settingsOpen]);
+
+  // Escape closes the dialog; Tab/Shift+Tab cycles within it instead of
+  // escaping into the page underneath.
+  function handleSettingsKeyDown(e) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      setSettingsOpen(false);
+      return;
+    }
+    if (e.key !== "Tab" || !settingsPanelRef.current) return;
+    const focusable = Array.from(
+      settingsPanelRef.current.querySelectorAll("input, select, textarea, button")
+    ).filter(el => !el.disabled);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   }
 
   useEffect(() => {
@@ -533,9 +571,11 @@ export default function KellyBot() {
         {settingsOpen && (
           <div onClick={() => setSettingsOpen(false)}
             style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div onClick={e => e.stopPropagation()} data-testid="settings-dialog"
+            <div onClick={e => e.stopPropagation()} onKeyDown={handleSettingsKeyDown}
+              ref={settingsPanelRef} data-testid="settings-dialog"
+              role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title"
               style={{ width: "100%", maxWidth: 380, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, fontFamily: "'DM Mono', monospace" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>{provider.label} API key</div>
+              <div id="settings-dialog-title" style={{ fontSize: 13, fontWeight: 800, color: C.ink, fontFamily: "'Syne', sans-serif", marginBottom: 10 }}>{provider.label} API key</div>
 
               <p style={{ fontSize: 11, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
                 Stored only in this browser, sent only to Anthropic. Key: {provider.keyHint}

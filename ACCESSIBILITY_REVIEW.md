@@ -8,10 +8,12 @@
 
 `tests/accessibility.spec.js` (run with `npm run test:a11y`) is an executable companion to this document — one test per finding below where automation can meaningfully check it: an axe-core scan of both the empty state and the open Settings dialog, a WCAG 1.4.4/1.4.10 zoom/reflow check, a forced-colors (Windows High Contrast) smoke check, keyboard-focus-visibility and Tab-order checks, and accessible-name checks on the form fields. No Anthropic key is needed — every check runs against static UI structure that renders before any API call.
 
-As of this pass: **8 passing / 1 failing**. The one failure is finding 4 (still open) — the rest are now regression-locked by passing tests:
+As of this pass: **11 passing / 0 failing**. Findings 1, 2, 3, 4, and 6 are all now regression-locked by passing tests:
 - Findings 1 and 2 (viewport zoom lock, missing focus indicators) are locked by passing tests.
 - Finding 3 (`C.faint` contrast) and finding 6 (missing accessible names) are both fixed — the axe-core scan, which previously flagged `color-contrast` and `select-name`/label violations on both views, now comes back clean of critical/serious findings on both.
-- The Tab-order test still confirms finding 4: focus escapes the open Settings dialog into the page behind it after just **one** Tab press.
+- Finding 4 (modal dialog semantics/focus trap) is fixed — Tab no longer escapes the dialog, `role="dialog"`/`aria-modal`/`aria-labelledby` are present, initial focus moves into the dialog on open, and Escape closes it and returns focus to the trigger button. Three tests cover this now: the original Tab-order test plus two added for this fix.
+
+Still open: finding 5 (message live region) and the "Minor / notes" items 7–10.
 
 When you fix a finding, its test should go green; keep this doc and the suite in sync in the same change.
 
@@ -63,7 +65,7 @@ All four interactive form fields — the message `textarea`, the API-key `input`
 
 **Applied:** `faint` changed to `#6b6560` — ~5.3:1 on `bg`, ~5.7:1 on `panel`. All 12 call sites use the shared token, so this was a single edit at the palette definition (`src/KellyBot.jsx:146`).
 
-### 4. Settings modal is not a real dialog — no focus containment, no accessible name/role — CONFIRMED
+### 4. Settings modal is not a real dialog — no focus containment, no accessible name/role — FIXED
 **WCAG 2.4.3 Focus Order (A), 4.1.2 Name, Role, Value (A)** — `src/KellyBot.jsx:531-603`
 
 The modal is a plain `div` with a click-outside-to-close handler; it has no `role="dialog"`, no `aria-modal="true"`, no `aria-labelledby` pointing at its title ("Anthropic API key", line 536), and nothing marks the rest of the page `inert`/`aria-hidden` while it's open. Concretely:
@@ -71,6 +73,8 @@ The modal is a plain `div` with a click-outside-to-close handler; it has no `rol
 - A screen reader user tabbing into it gets no announcement that a dialog opened, or what it's called.
 - Tab order is not trapped: because the modal markup sits *before* the navbar/messages/toolbar in the JSX, tabbing forward from the modal's last control lands back on the page's nav gear, message list, and input — all still interactive and visible underneath the open modal. **Confirmed by `tests/accessibility.spec.js`: focus leaves the dialog after 1 Tab press.**
 - There's no explicit close control and no `Escape`-to-close handler — a keyboard user's only way out is tabbing to Save or Clear (functionally reachable, but non-obvious and non-standard for a dialog).
+
+**Applied:** the panel now carries `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` pointing at the title (`src/KellyBot.jsx:574-577`). A `useEffect` keyed on `settingsOpen` moves focus to the dialog's first field on open and restores focus to whatever element opened it (captured via `document.activeElement` in `openSettings()`) on close. A `handleSettingsKeyDown` handler on the panel traps Tab/Shift+Tab between the first and last focusable elements and closes the dialog on `Escape`. The backdrop-click-to-close behavior is unchanged. Relying on `aria-modal="true"` for AT rather than also marking background content `inert`/`aria-hidden` — that's the standard WAI-ARIA Authoring Practices modal pattern (role + aria-modal + focus trap + Escape + focus restore); `inert` on the background would be additional hardening, not required by this finding.
 
 **Fix:** give the modal `role="dialog"`, `aria-modal="true"`, `aria-labelledby` on the title; move initial focus into it on open and restore focus to the gear button on close; trap Tab within it (or mark the rest of the tree `inert`) while open; add an `Escape` key handler.
 
@@ -154,8 +158,8 @@ Still open — these need a human, not a browser automation tool:
 
 1. ~~Findings 1 and 2 (viewport zoom lock, missing focus indicators) — one-line/small fixes, high impact, no design risk.~~ **Done.**
 2. ~~Finding 3 (`C.faint` contrast) — a palette change; touches many call sites but is mechanical.~~ **Done.**
-3. ~~Finding 6 (form labels) — localized, no visual change.~~ **Done.** Finding 5 (message live region) is the same category but not yet applied.
-4. Finding 4 (modal semantics/focus trap) — most involved; needs the dialog role, focus management, and either a trap or `inert` on the background. Currently the only failing test in `tests/accessibility.spec.js`.
-5. Findings 7–10 as follow-up cleanup.
+3. ~~Finding 6 (form labels) — localized, no visual change.~~ **Done.**
+4. ~~Finding 4 (modal semantics/focus trap) — dialog role, focus management, Tab trap, Escape.~~ **Done.**
+5. Finding 5 (message live region) and findings 7–10 as follow-up cleanup.
 
-Findings 1, 2, 3, and 6 have been applied (see notes above). Finding 4 is next up — its test is the one red check in `npm run test:a11y`. Findings 5, 7–10 are still open. Happy to implement any of the remaining items on request.
+Findings 1, 2, 3, 4, and 6 have been applied (see notes above) — `npm run test:a11y` is fully green (11/11). Finding 5 and the "Minor / notes" items are still open. Happy to implement any of the remaining items on request.
